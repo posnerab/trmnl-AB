@@ -22,21 +22,48 @@ except ImportError:
 from shared_credentials import DEFAULT_SERVICE_NAME, get_credential, list_stored_credentials
 
 MCP_URL = "https://trmnl.com/mcp"
+DEFAULT_NAMESPACE = "trmnl"
+DEFAULT_CREDENTIAL_CANDIDATES = [
+    "TRMNL_MCP_API_KEY",
+    "MCP_API_KEY",
+    "api_key",
+    "zmanim",
+    "parasha",
+    "hebdate",
+]
+
+
+def resolve_credential_name(raw_name=None, namespace=DEFAULT_NAMESPACE):
+    """Resolve a short or full credential name within a namespace."""
+    if raw_name:
+        if ":" in raw_name:
+            return raw_name
+        return f"{namespace}:{raw_name}"
+
+    credentials = list_stored_credentials(DEFAULT_SERVICE_NAME)
+    namespaced = [name for name in credentials if name.startswith(f"{namespace}:")]
+    if not namespaced:
+        print("✗ No credentials found. Store one first using credential_manager.py")
+        sys.exit(1)
+
+    for candidate in DEFAULT_CREDENTIAL_CANDIDATES:
+        full_name = f"{namespace}:{candidate}"
+        if full_name in namespaced:
+            return full_name
+
+    if len(namespaced) == 1:
+        return namespaced[0]
+
+    print(
+        f"✗ Multiple credentials found in namespace '{namespace}'. "
+        f"Pass one explicitly. Available: {', '.join(namespaced)}"
+    )
+    sys.exit(1)
 
 
 def test_mcp_connection(credential_name=None):
     """Test MCP connection with a credential."""
-    # If no credential name provided, look for default or ask
-    if not credential_name:
-        credentials = list_stored_credentials(DEFAULT_SERVICE_NAME)
-        if not credentials:
-            print("✗ No credentials found. Store one first using credential_manager.py")
-            sys.exit(1)
-        
-        if "TRMNL_MCP_API_KEY" in credentials:
-            credential_name = "TRMNL_MCP_API_KEY"
-        else:
-            credential_name = credentials[0]
+    credential_name = resolve_credential_name(credential_name)
     
     # Retrieve and test
     api_key = get_credential(credential_name, DEFAULT_SERVICE_NAME)
@@ -76,7 +103,7 @@ def main():
     
     # get command
     get_parser = subparsers.add_parser("get", help="Get a credential value")
-    get_parser.add_argument("name", help="Credential name")
+    get_parser.add_argument("name", nargs="?", help="Credential short name or full namespaced name")
     
     # list command
     subparsers.add_parser("list", help="List all stored credentials")
@@ -96,7 +123,8 @@ def main():
         sys.exit(0)
     
     if args.command == "get":
-        value = get_credential(args.name, DEFAULT_SERVICE_NAME)
+        credential_name = resolve_credential_name(args.name)
+        value = get_credential(credential_name, DEFAULT_SERVICE_NAME)
         print(value)
     elif args.command == "list":
         creds = list_stored_credentials(DEFAULT_SERVICE_NAME)

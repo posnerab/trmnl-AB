@@ -36,33 +36,29 @@ The actual source lives outside this repo so it can be reused across projects.
 Features:
 
 - **Menu-driven interface** - Run `./credential_manager.py` or `python credential_manager.py`
-- **Paste support** - Multi-line paste when setting credentials
+- **Single-line secret entry** - Paste a key and press Enter to save it
 - **Escape at any prompt** - Press `Ctrl+C` to cancel and return to menu
-- **View stored credentials** - On load, shows all stored credentials; option to list in menu
-- **Context support** - Organize credentials by display name, such as "TRMNL"
+- **View stored credentials** - The main menu shows currently stored credentials
+- **Namespace support** - Organize credentials by namespace, such as `trmnl:zmanim`
 
 Menu options:
 
 1. Set a credential - Save a new credential with optional context
 2. Get a credential - Retrieve a stored credential value
 3. Delete a credential - Remove a credential with confirmation
-4. List stored credentials - View all saved credential names
-5. Exit
+4. Exit
 
-Install the dependency with:
-
-```bash
-pip install keyring
-```
-
-Or using the virtual environment:
+Install dependencies with:
 
 ```bash
-source .venv/bin/activate
-pip install keyring
+pip install -r /home/xander/projects/shared/requirements.txt
 ```
 
-Use `TRMNL_MCP_API_KEY` with the registered MCP server URL above.
+Or use the shared virtual environment:
+
+```bash
+source /home/xander/projects/shared/.venv/bin/activate
+```
 
 The shared credential toolkit lives at:
 
@@ -76,3 +72,15 @@ ln -s /home/xander/projects/shared/credential_manager.py credential_manager.py
 
 The TRMNL helper scripts import the shared package from `/home/xander/projects/shared`
 directly, so a repo-local `shared_credentials` symlink is no longer required.
+
+For non-interactive unlocks, set:
+
+```bash
+export SHARED_CREDENTIALS_MASTER_PASSWORD='your-keyring-password'
+```
+
+Typical local setup:
+
+```bash
+source ~/.shared-credentials.env
+```

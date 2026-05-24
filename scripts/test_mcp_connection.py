@@ -1,6 +1,7 @@
 #!/Users/abieposner/Documents/trmnl-AB/.venv/bin/python3
 """Test TRMNL MCP server connection using stored credential."""
 
+import argparse
 import sys
 import json
 from pathlib import Path
@@ -18,15 +19,74 @@ SHARED_ROOT = Path("/home/xander/projects/shared")
 if str(SHARED_ROOT) not in sys.path:
     sys.path.insert(0, str(SHARED_ROOT))
 
-from shared_credentials import DEFAULT_SERVICE_NAME, get_credential
+from shared_credentials import (
+    DEFAULT_SERVICE_NAME,
+    build_credential_name,
+    get_credential,
+    list_stored_credentials,
+)
 
-CRED_NAME = "TRMNL_MCP_API_KEY"
+DEFAULT_NAMESPACE = "trmnl"
+DEFAULT_CREDENTIAL_CANDIDATES = [
+    "TRMNL_MCP_API_KEY",
+    "MCP_API_KEY",
+    "api_key",
+    "zmanim",
+    "parasha",
+    "hebdate",
+]
 MCP_URL = "https://trmnl.com/mcp"
 
+def resolve_credential_name(raw_name: str | None, namespace: str) -> str:
+    if raw_name:
+        if ":" in raw_name:
+            return raw_name
+        return build_credential_name(raw_name, namespace)
+
+    stored = list_stored_credentials(DEFAULT_SERVICE_NAME)
+    namespaced = [name for name in stored if name.startswith(f"{namespace}:")]
+
+    for candidate in DEFAULT_CREDENTIAL_CANDIDATES:
+        full_name = build_credential_name(candidate, namespace)
+        if full_name in namespaced:
+            return full_name
+
+    if len(namespaced) == 1:
+        return namespaced[0]
+
+    if namespaced:
+        available = ", ".join(namespaced)
+        raise SystemExit(
+            f"Multiple credentials found in namespace '{namespace}'. "
+            f"Pass one explicitly. Available: {available}"
+        )
+
+    raise SystemExit(
+        f"No credentials found in namespace '{namespace}'. "
+        "Use credential_manager.py to add one first."
+    )
+
+
 def main():
-    api_key = get_credential(CRED_NAME, DEFAULT_SERVICE_NAME)
-    
-    print(f"✓ Retrieved credential '{CRED_NAME}'")
+    parser = argparse.ArgumentParser(
+        description="Test TRMNL MCP server connection using a shared credential."
+    )
+    parser.add_argument(
+        "credential",
+        nargs="?",
+        help="Credential name or full namespaced credential, for example 'zmanim' or 'trmnl:zmanim'.",
+    )
+    parser.add_argument(
+        "--namespace",
+        default=DEFAULT_NAMESPACE,
+        help=f"Credential namespace to search. Default: {DEFAULT_NAMESPACE}",
+    )
+    args = parser.parse_args()
+
+    credential_name = resolve_credential_name(args.credential, args.namespace)
+    api_key = get_credential(credential_name, DEFAULT_SERVICE_NAME)
+
+    print(f"✓ Retrieved credential '{credential_name}'")
     
     # Test MCP connection
     url = f"{MCP_URL}?api_key={api_key}"
