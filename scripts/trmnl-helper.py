@@ -1,17 +1,16 @@
-#!/Users/abieposner/Documents/trmnl-AB/.venv/bin/python3
+#!/usr/bin/env python3
 """General utility helper for TRMNL credentials and MCP operations."""
 
-import sys
-import os
 import argparse
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-SHARED_ROOT = Path("/home/xander/projects/shared")
-if str(SHARED_ROOT) not in sys.path:
-    sys.path.insert(0, str(SHARED_ROOT))
+for shared_root in (ROOT.parent / "shared", Path("/home/xander/projects/shared")):
+    if shared_root.exists() and str(shared_root) not in sys.path:
+        sys.path.insert(0, str(shared_root))
 
 try:
     import requests
@@ -43,7 +42,7 @@ def resolve_credential_name(raw_name=None, namespace=DEFAULT_NAMESPACE):
     credentials = list_stored_credentials(DEFAULT_SERVICE_NAME)
     namespaced = [name for name in credentials if name.startswith(f"{namespace}:")]
     if not namespaced:
-        print("✗ No credentials found. Store one first using credential_manager.py")
+        print("No credentials found. Store one first using credential_manager.py")
         sys.exit(1)
 
     for candidate in DEFAULT_CREDENTIAL_CANDIDATES:
@@ -55,7 +54,7 @@ def resolve_credential_name(raw_name=None, namespace=DEFAULT_NAMESPACE):
         return namespaced[0]
 
     print(
-        f"✗ Multiple credentials found in namespace '{namespace}'. "
+        f"Multiple credentials found in namespace '{namespace}'. "
         f"Pass one explicitly. Available: {', '.join(namespaced)}"
     )
     sys.exit(1)
@@ -64,34 +63,32 @@ def resolve_credential_name(raw_name=None, namespace=DEFAULT_NAMESPACE):
 def test_mcp_connection(credential_name=None):
     """Test MCP connection with a credential."""
     credential_name = resolve_credential_name(credential_name)
-    
-    # Retrieve and test
     api_key = get_credential(credential_name, DEFAULT_SERVICE_NAME)
-    
-    print(f"✓ Using credential: {credential_name}")
+
+    print(f"Using credential: {credential_name}")
     print(f"Testing MCP connection to {MCP_URL}...")
-    
+
     try:
         response = requests.get(f"{MCP_URL}?api_key={api_key}", timeout=10)
-        
-        print(f"\n✓ Server responded with status {response.status_code}")
-        
+
+        print(f"\nServer responded with status {response.status_code}")
+
         if response.status_code == 405:
             print("  (Endpoint expects POST requests)")
-        
+
         if response.headers.get("allow"):
             print(f"  Allowed methods: {response.headers['allow']}")
-        
+
         return True
-        
+
     except requests.exceptions.Timeout:
-        print("✗ Connection timed out")
+        print("Connection timed out")
         return False
-    except requests.exceptions.ConnectionError as e:
-        print(f"✗ Connection failed: {e}")
+    except requests.exceptions.ConnectionError as exc:
+        print(f"Connection failed: {exc}")
         return False
-    except Exception as e:
-        print(f"✗ Error: {e}")
+    except Exception as exc:
+        print(f"Error: {exc}")
         return False
 
 
@@ -100,28 +97,25 @@ def main():
         description="TRMNL helper utility for credentials and MCP operations"
     )
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
-    
-    # get command
+
     get_parser = subparsers.add_parser("get", help="Get a credential value")
     get_parser.add_argument("name", nargs="?", help="Credential short name or full namespaced name")
-    
-    # list command
+
     subparsers.add_parser("list", help="List all stored credentials")
-    
-    # test-mcp command
+
     test_parser = subparsers.add_parser("test-mcp", help="Test MCP connection")
     test_parser.add_argument(
         "credential",
         nargs="?",
         help="Credential name (optional, uses default if not specified)",
     )
-    
+
     args = parser.parse_args()
-    
+
     if not args.command:
         parser.print_help()
         sys.exit(0)
-    
+
     if args.command == "get":
         credential_name = resolve_credential_name(args.name)
         value = get_credential(credential_name, DEFAULT_SERVICE_NAME)
@@ -131,7 +125,7 @@ def main():
         if creds:
             print("Stored credentials:")
             for name in creds:
-                print(f"  • {name}")
+                print(f"  - {name}")
         else:
             print("No credentials stored.")
     elif args.command == "test-mcp":

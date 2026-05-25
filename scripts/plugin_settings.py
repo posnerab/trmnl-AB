@@ -15,9 +15,9 @@ except ImportError:
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-SHARED_ROOT = Path("/home/xander/projects/shared")
-if str(SHARED_ROOT) not in sys.path:
-    sys.path.insert(0, str(SHARED_ROOT))
+for shared_root in (ROOT.parent / "shared", Path("/home/xander/projects/shared")):
+    if shared_root.exists() and str(shared_root) not in sys.path:
+        sys.path.insert(0, str(shared_root))
 
 from shared_credentials import (
     DEFAULT_SERVICE_NAME,
