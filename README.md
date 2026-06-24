@@ -15,6 +15,28 @@ Helper scripts are in the `scripts/` directory:
 
 See [scripts/README.md](scripts/README.md) for usage.
 
+## Zmanim Time-Travel Tester
+
+The canonical TRMNL transform lives at `scripts/zmanim_transform.js`. Test it
+against live Hebcal data for the current time:
+
+```bash
+npm run zmanim
+```
+
+Test any Milwaukee date and time:
+
+```bash
+npm run zmanim -- --at 2026-06-07T13:47
+npm run zmanim -- --at 2026-12-04T16:00
+```
+
+Run the deterministic boundary tests with:
+
+```bash
+npm test
+```
+
 ## MCP and Credentials
 
 A persistent MCP server registration is stored in repo memory at `/memories/repo/mcp_servers.json`:

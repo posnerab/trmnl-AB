@@ -49,3 +49,15 @@ This script retrieves a credential from the `trmnl` namespace and performs a ful
 - Credentials are retrieved from the shared keyring helper linked into the repo
 - Non-interactive unlocks use `SHARED_CREDENTIALS_MASTER_PASSWORD`
 - Run from the repo root: `python scripts/trmnl-helper.py [command]`
+
+## Zmanim transform tester
+
+`zmanim_transform.js` is the canonical transform deployed to TRMNL.
+`test_zmanim.js` fetches the matching Hebcal zmanim and calendar responses,
+then runs that transform with an injectable clock.
+
+```bash
+npm run zmanim
+npm run zmanim -- --at 2026-06-07T13:47
+npm run zmanim -- --at 2026-06-07T21:00 --json
+```

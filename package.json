@@ -1,0 +1,8 @@
+{
+  "name": "trmnl-ab-tools",
+  "private": true,
+  "scripts": {
+    "test": "node --test",
+    "zmanim": "node scripts/test_zmanim.js"
+  }
+}
