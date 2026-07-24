@@ -1,44 +1,15 @@
-{%- comment -%} Map TRMNL polling payload (IDX_0) to locals if present {%- endcomment -%}
-{% if IDX_0 %}
-{% assign hdate = IDX_0.hdate %}
-{% assign omer = IDX_0.omer %}
-{% endif %}
+<div class="layout layout--col layout--center gap--small">
+  {% if next_zman and next_zman.size > 1 %}
+    <span class="label label--small label--gray">NEXT ZMAN</span>
+    <span class="value value--giga value--tnums" data-fit-value="true">{{ next_zman[1] }}</span>
+    <span class="title title--medium">{{ next_zman[0] }}</span>
+  {% else %}
+    <span class="label label--small label--gray">NEXT ZMAN</span>
+    <span class="title title--large">No upcoming zman</span>
+  {% endif %}
+</div>
 
-<div
-    style="width: 100%; height: 100%; max-height: 240px; padding: 14px; display: flex; align-items: center; justify-content: center; box-sizing: border-box; margin: 0 auto; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
-    {% if hdate %}
-        {% assign hdate_parts = hdate | split: " " %}
-        {% if hdate_parts.size >= 3 %}
-            {%- comment -%} Hebrew date format: "15 Tishrei 5785" {%- endcomment -%}
-            <div style="text-align: center; line-height: 1.1;">
-                <p style="font-size: 50px; font-weight: bold; margin: 0; color: black; white-space: nowrap;">
-                    {{ hdate_parts[0] }} {{ hdate_parts[1] }}
-                </p>
-                <p style="font-size: 40px; font-weight: bold; margin: 8px 0 0 0; color: black;">
-                    {{ hdate_parts[2] }}
-                </p>
-                {% if omer %}
-                <p style="font-size: 17px; font-weight: 600; margin: 10px 0 0 0; color: black; line-height: 1.15;">
-                    {{ omer }}
-                </p>
-                {% endif %}
-            </div>
-        {% else %}
-            {%- comment -%} Fallback if format is different {%- endcomment -%}
-            <div style="text-align: center;">
-                <p style="font-size: 40px; font-weight: bold; margin: 0; color: black;">
-                    {{ hdate }}
-                </p>
-                {% if omer %}
-                <p style="font-size: 17px; font-weight: 600; margin: 10px 0 0 0; color: black; line-height: 1.15;">
-                    {{ omer }}
-                </p>
-                {% endif %}
-            </div>
-        {% endif %}
-    {% else %}
-        <div style="text-align: center;">
-            <p style="font-size: 20px; font-weight: bold; margin: 0; color: black;">No Date</p>
-        </div>
-    {% endif %}
+<div class="title_bar">
+  <span class="title">{{ trmnl.plugin_settings.instance_name }}</span>
+  <span class="instance">Next zman</span>
 </div>
