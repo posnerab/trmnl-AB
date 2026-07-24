@@ -9,7 +9,7 @@ serverless_language: ''
 polling_url:
 polling_headers:
 polling_body:
-id: 167476
+id: 167459
 oauth_enabled: 'false'
 oauth_pkce_enabled: 'no'
 oauth_authorize_url: ''
@@ -30,6 +30,6 @@ oauth_token_field_name: ''
 oauth_expiry_field_name: ''
 oauth_expiry_strategy: ''
 oauth_fixed_expiry_ms: ''
-name: Hebcal - Parasha
+name: Hebcal - Hebrew Date
 refresh_interval: 720
 oauth_connection_config:
