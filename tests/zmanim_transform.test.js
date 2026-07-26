@@ -1,5 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const { buildPayload } = require("../scripts/zmanim_transform");
 
 function fixture(date, weekdayCalendarItems) {
@@ -34,7 +36,7 @@ function fixture(date, weekdayCalendarItems) {
   };
 }
 
-test("weekday afternoon includes mincha milestones and sunset", () => {
+test("weekday afternoon keeps intentionally visible times only", () => {
   const input = fixture("2026-06-07", [
     { category: "parashat", date: "2026-06-13", title_orig: "Parashat Sh'lach" }
   ]);
@@ -42,21 +44,36 @@ test("weekday afternoon includes mincha milestones and sunset", () => {
 
   assert.equal(result.period, "Afternoon");
   assert.equal(result.parasha, "Shelach");
-  assert.deepEqual(result.times, [
-    ["Mincha Gedola", "1:28 PM"],
-    ["Mincha Ketana", "5:17 PM"],
-    ["Plag HaMincha", "6:53 PM"],
-    ["Sunset", "8:28 PM"]
-  ]);
+  assert.deepEqual(result.times, [["Sunset", "8:28 PM"]]);
 });
 
-test("weekday afternoon keeps only the most recent passed milestone", () => {
+test("hidden mincha milestones remain absent later in the afternoon", () => {
   const result = buildPayload(fixture("2026-06-07", []), {
     now: "2026-06-07T18:54:00-05:00"
   });
+  assert.deepEqual(result.times, [["Sunset", "8:28 PM"]]);
+});
+
+test("most recent past zman remains visible through exactly 30 minutes", () => {
+  const result = buildPayload(fixture("2026-06-07", []), {
+    now: "2026-06-07T08:55:00-05:00"
+  });
   assert.deepEqual(result.times, [
-    ["Plag HaMincha", "6:53 PM"],
-    ["Sunset", "8:28 PM"]
+    ["Shema (MGA)", "8:25 AM"],
+    ["Shema (Gra)", "9:01 AM"],
+    ["Tefilla (Gra)", "10:18 AM"],
+    ["Chatzos", "12:50 PM"]
+  ]);
+});
+
+test("past zman disappears after 30 minutes while future zmanim remain", () => {
+  const result = buildPayload(fixture("2026-06-07", []), {
+    now: "2026-06-07T08:55:01-05:00"
+  });
+  assert.deepEqual(result.times, [
+    ["Shema (Gra)", "9:01 AM"],
+    ["Tefilla (Gra)", "10:18 AM"],
+    ["Chatzos", "12:50 PM"]
   ]);
 });
 
@@ -77,10 +94,30 @@ test("Friday afternoon uses early Shabbos candle lighting", () => {
   });
   assert.equal(result.period, "Erev Shabbos");
   assert.deepEqual(result.times, [
-    ["Mincha Gedola", "1:28 PM"],
-    ["Plag HaMincha", "6:53 PM"],
     ["Candle Lighting", "7:04 PM"],
     ["Sunset", "8:27 PM"]
+  ]);
+});
+
+test("published single CBJ Mincha is included from the shared schedule", () => {
+  const result = buildPayload(fixture("2026-07-26", []), {
+    now: "2026-07-26T14:00:00-05:00"
+  });
+  assert.deepEqual(result.times, [
+    ["CBJ Mincha", "8:00 PM"],
+    ["Sunset", "8:28 PM"]
+  ]);
+});
+
+test("passed CBJ Mincha 1 is removed while future CBJ Mincha 2 remains", () => {
+  const result = buildPayload(fixture("2026-08-01", []), {
+    now: "2026-08-01T18:30:00-05:00"
+  });
+  assert.deepEqual(result.times, [
+    ["CBJ Mincha 2", "7:40 PM"],
+    ["Sunset", "8:28 PM"],
+    ["Maariv", "9:28 PM"],
+    ["Havdalah", "9:40 PM"]
   ]);
 });
 
@@ -94,4 +131,13 @@ test("Shabbos afternoon retains its existing sunset and havdalah schedule", () =
     ["Maariv", "9:28 PM"],
     ["Havdalah", "9:40 PM"]
   ]);
+});
+
+test("CBJ local clocks do not hard-code the daylight-saving offset", () => {
+  const source = fs.readFileSync(
+    path.join(__dirname, "..", "scripts", "zmanim_transform.js"),
+    "utf8"
+  );
+  assert.doesNotMatch(source, /dateString}T\\${clock}:00-05:00/);
+  assert.match(source, /timeZone: TZID/);
 });

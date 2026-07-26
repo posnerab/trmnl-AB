@@ -12,6 +12,220 @@ function run(input) {
 function buildPayload(input, options) {
   const TZID = "America/Chicago";
   const now = options && options.now ? new Date(options.now) : new Date();
+  // BEGIN GENERATED CBJ CALENDAR - shared/cbj_calendar/schedule.json
+  const CBJ_MINCHA_SCHEDULE = {
+    "2026-07-01": [
+      "20:20"
+    ],
+    "2026-07-02": [
+      "19:50"
+    ],
+    "2026-07-03": [
+      "18:35"
+    ],
+    "2026-07-04": [
+      "18:20",
+      "20:00"
+    ],
+    "2026-07-05": [
+      "20:15"
+    ],
+    "2026-07-06": [
+      "20:15"
+    ],
+    "2026-07-07": [
+      "20:15"
+    ],
+    "2026-07-08": [
+      "20:15"
+    ],
+    "2026-07-09": [
+      "20:15"
+    ],
+    "2026-07-10": [
+      "18:35"
+    ],
+    "2026-07-11": [
+      "18:20",
+      "20:00"
+    ],
+    "2026-07-12": [
+      "20:15"
+    ],
+    "2026-07-13": [
+      "20:15"
+    ],
+    "2026-07-14": [
+      "20:15"
+    ],
+    "2026-07-15": [
+      "20:15"
+    ],
+    "2026-07-16": [
+      "20:15"
+    ],
+    "2026-07-17": [
+      "18:30"
+    ],
+    "2026-07-18": [
+      "18:15",
+      "19:55"
+    ],
+    "2026-07-19": [
+      "20:10"
+    ],
+    "2026-07-20": [
+      "20:10"
+    ],
+    "2026-07-21": [
+      "20:10"
+    ],
+    "2026-07-22": [
+      "19:00"
+    ],
+    "2026-07-23": [
+      "14:00",
+      "19:35"
+    ],
+    "2026-07-24": [
+      "18:25"
+    ],
+    "2026-07-25": [
+      "18:10",
+      "19:50"
+    ],
+    "2026-07-26": [
+      "20:00"
+    ],
+    "2026-07-27": [
+      "20:00"
+    ],
+    "2026-07-28": [
+      "20:00"
+    ],
+    "2026-07-29": [
+      "20:00"
+    ],
+    "2026-07-30": [
+      "20:00"
+    ],
+    "2026-07-31": [
+      "18:20"
+    ],
+    "2026-08-01": [
+      "18:00",
+      "19:40"
+    ],
+    "2026-08-02": [
+      "19:50"
+    ],
+    "2026-08-03": [
+      "19:50"
+    ],
+    "2026-08-04": [
+      "19:50"
+    ],
+    "2026-08-05": [
+      "19:50"
+    ],
+    "2026-08-06": [
+      "19:50"
+    ],
+    "2026-08-07": [
+      "18:15"
+    ],
+    "2026-08-08": [
+      "17:50",
+      "19:30"
+    ],
+    "2026-08-09": [
+      "19:45"
+    ],
+    "2026-08-10": [
+      "19:45"
+    ],
+    "2026-08-11": [
+      "19:45"
+    ],
+    "2026-08-12": [
+      "19:45"
+    ],
+    "2026-08-13": [
+      "19:45"
+    ],
+    "2026-08-14": [
+      "18:05",
+      "19:30"
+    ],
+    "2026-08-15": [
+      "17:40",
+      "19:20"
+    ],
+    "2026-08-16": [
+      "19:30"
+    ],
+    "2026-08-17": [
+      "19:30"
+    ],
+    "2026-08-18": [
+      "19:30"
+    ],
+    "2026-08-19": [
+      "19:30"
+    ],
+    "2026-08-20": [
+      "19:30"
+    ],
+    "2026-08-21": [
+      "17:55",
+      "19:20"
+    ],
+    "2026-08-22": [
+      "17:30",
+      "19:10"
+    ],
+    "2026-08-23": [
+      "19:20"
+    ],
+    "2026-08-24": [
+      "19:20"
+    ],
+    "2026-08-25": [
+      "19:20"
+    ],
+    "2026-08-26": [
+      "19:20"
+    ],
+    "2026-08-27": [
+      "19:20"
+    ],
+    "2026-08-28": [
+      "19:10"
+    ],
+    "2026-08-29": [
+      "17:20",
+      "19:00"
+    ],
+    "2026-08-30": [
+      "19:10"
+    ],
+    "2026-08-31": [
+      "19:10"
+    ]
+  };
+
+  const CBJ_CANDLE_LIGHTING_SCHEDULE = {
+    "2026-07-03": "19:10",
+    "2026-07-10": "19:08",
+    "2026-07-17": "19:04",
+    "2026-07-24": "19:00",
+    "2026-07-31": "18:54",
+    "2026-08-07": "18:47",
+    "2026-08-14": "18:39",
+    "2026-08-21": "18:30",
+    "2026-08-28": "19:15"
+  };
+  // END GENERATED CBJ CALENDAR
 
   const PARASHA_MAP = {
     "Achrei Mot": "Acharei Mos",
@@ -81,6 +295,8 @@ function buildPayload(input, options) {
   const today = formatDateParam(now);
   const todayWeekday = weekday(now);
   const times = parseTimes(zmanimData.times);
+  const cbjMincha = parseCbjMincha(today);
+  const cbjCandleLighting = parseCbjCandleLighting(today);
   const hdate = findHebrewDate(calendarData, today);
   const parasha = findUpcomingParasha(calendarData, now, todayWeekday);
 
@@ -88,6 +304,8 @@ function buildPayload(input, options) {
     now,
     todayWeekday,
     times,
+    cbjMincha,
+    cbjCandleLighting,
     hdate,
     parasha,
     location: (zmanimData.location && zmanimData.location.title) || "Milwaukee, Wisconsin, USA"
@@ -144,6 +362,47 @@ function buildPayload(input, options) {
     );
   }
 
+  function parseCbjMincha(dateString) {
+    return (CBJ_MINCHA_SCHEDULE[dateString] || []).map((clock) =>
+      parseLocalClock(dateString, clock)
+    );
+  }
+
+  function parseCbjCandleLighting(dateString) {
+    const clock = CBJ_CANDLE_LIGHTING_SCHEDULE[dateString];
+    return clock ? parseLocalClock(dateString, clock) : null;
+  }
+
+  function parseLocalClock(dateString, clock) {
+    const [year, month, day] = dateString.split("-").map(Number);
+    const [hour, minute] = clock.split(":").map(Number);
+    const utcGuess = new Date(Date.UTC(year, month - 1, day, hour, minute));
+    const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", {
+      timeZone: TZID,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23"
+    }).formatToParts(utcGuess).map((part) => [part.type, part.value]));
+    const representedAsUtc = Date.UTC(
+      Number(parts.year),
+      Number(parts.month) - 1,
+      Number(parts.day),
+      Number(parts.hour),
+      Number(parts.minute)
+    );
+    return new Date(utcGuess.getTime() - (representedAsUtc - utcGuess.getTime()));
+  }
+
+  function cbjMinchaItems(items) {
+    return items.map((time, index) => [
+      items.length > 1 ? `CBJ Mincha ${index + 1}` : "CBJ Mincha",
+      time
+    ]);
+  }
+
   function normalizeParashaName(name) {
     if (!name) return name;
     const cleaned = name
@@ -185,7 +444,7 @@ function buildPayload(input, options) {
     return month === "Tishrei" && day < 15;
   }
 
-  function buildCurrentPeriodPayload({ now: current, todayWeekday: day, times: z, hdate: hd, parasha: p, location }) {
+  function buildCurrentPeriodPayload({ now: current, todayWeekday: day, times: z, cbjMincha, cbjCandleLighting, hdate: hd, parasha: p, location }) {
     const sunrise = z.sunrise;
     const chatzot = z.chatzot;
     const sunset = z.sunset;
@@ -225,20 +484,26 @@ function buildPayload(input, options) {
           ["Havdalah", tzeit72min]
         ];
       } else if (day === 5) {
-        const candleLighting = isEarlyShabbosSeason(hd) && z.plagHaMincha
-          ? addMinutes(z.plagHaMincha, 11)
-          : addMinutes(sunset, -18);
+        const candleLighting = cbjCandleLighting ||
+          (isEarlyShabbosSeason(hd) && z.plagHaMincha
+            ? addMinutes(z.plagHaMincha, 11)
+            : addMinutes(sunset, -18));
         relevantTimes = [
-          ["Mincha Gedola", z.minchaGedola],
-          ["Plag HaMincha", z.plagHaMincha],
+          // Temporarily hidden; uncomment to restore Mincha Gedola.
+          // ["Mincha Gedola", z.minchaGedola],
+          // Temporarily hidden; uncomment to restore Plag HaMincha.
+          // ["Plag HaMincha", z.plagHaMincha],
           ["Candle Lighting", candleLighting],
           ["Sunset", addMinutes(sunset, -1)]
         ];
       } else {
         relevantTimes = [
-          ["Mincha Gedola", z.minchaGedola],
-          ["Mincha Ketana", z.minchaKetana],
-          ["Plag HaMincha", z.plagHaMincha],
+          // Temporarily hidden; uncomment to restore Mincha Gedola.
+          // ["Mincha Gedola", z.minchaGedola],
+          // Temporarily hidden; uncomment to restore Mincha Ketana.
+          // ["Mincha Ketana", z.minchaKetana],
+          // Temporarily hidden; uncomment to restore Plag HaMincha.
+          // ["Plag HaMincha", z.plagHaMincha],
           ["Sunset", sunset]
         ];
       }
@@ -266,16 +531,33 @@ function buildPayload(input, options) {
       ];
     }
 
+    if (current >= chatzot && current < sunset && cbjMincha.length) {
+      relevantTimes.push(...cbjMinchaItems(cbjMincha));
+    }
+
+    const nextZman = findNextZman(relevantTimes, cbjMincha, current);
+
     return {
       period,
       current_time: formatClock(current),
       date: formatDisplayDate(current),
       hdate: hd,
       parasha: p,
+      next_zman: nextZman,
       times: filterDisplayTimes(relevantTimes, current)
         .map(([name, time]) => [name, typeof time === "string" ? time : formatClock(time)]),
       location
     };
+  }
+
+  function findNextZman(items, minchaItems, current) {
+    const candidates = items
+      .filter((item) => item[1] instanceof Date && !Number.isNaN(item[1].getTime()))
+      .concat(cbjMinchaItems(minchaItems))
+      .filter((item) => item[1].getTime() >= current.getTime())
+      .sort((a, b) => a[1].getTime() - b[1].getTime());
+    if (!candidates.length) return null;
+    return [candidates[0][0], formatClock(candidates[0][1])];
   }
 
   function filterDisplayTimes(items, current) {
@@ -283,10 +565,14 @@ function buildPayload(input, options) {
     const future = [];
     const undated = [];
     const nowValue = current.getTime();
+    const maxPastAgeMs = 30 * 60 * 1000;
 
     for (const item of items) {
       const time = item[1];
       if (!time) continue;
+      if (item[0] === "CBJ Mincha 1" && time instanceof Date && time.getTime() <= nowValue) {
+        continue;
+      }
       if (!(time instanceof Date) || Number.isNaN(time.getTime())) {
         undated.push(item);
       } else if (time.getTime() < nowValue) {
@@ -297,7 +583,12 @@ function buildPayload(input, options) {
         future.push(item);
       }
     }
-    return (mostRecentPast ? [mostRecentPast] : []).concat(future, undated);
+    future.sort((a, b) => a[1].getTime() - b[1].getTime());
+    const recentPast = mostRecentPast &&
+      nowValue - mostRecentPast[1].getTime() <= maxPastAgeMs
+      ? [mostRecentPast]
+      : [];
+    return recentPast.concat(future, undated);
   }
 }
 

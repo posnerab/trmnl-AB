@@ -37,6 +37,11 @@ Run the deterministic boundary tests with:
 npm test
 ```
 
+CBJ Mincha and candle-lighting constants in the Zmanim transform are generated
+from the sibling `shared/cbj_calendar/schedule.json`. Update that canonical
+calendar and run `shared/scripts/cbj_calendar.py sync`; do not hand-edit the
+generated CBJ blocks in either transform copy.
+
 ## MCP and Credentials
 
 A persistent MCP server registration is stored in repo memory at `/memories/repo/mcp_servers.json`:
