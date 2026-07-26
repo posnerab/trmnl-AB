@@ -1,0 +1,9 @@
+[submodule "plugins/zmanim"]
+	path = plugins/zmanim
+	url = https://github.com/posnerab/trmnl-AB-zmanim.git
+[submodule "plugins/hebrew-date"]
+	path = plugins/hebrew-date
+	url = https://github.com/posnerab/trmnl-AB-hebrew-date.git
+[submodule "plugins/parasha"]
+	path = plugins/parasha
+	url = https://github.com/posnerab/trmnl-AB-parasha.git
