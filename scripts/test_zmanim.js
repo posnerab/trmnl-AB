@@ -2,7 +2,6 @@
 
 const { buildPayload } = require("./zmanim_transform");
 
-const GEONAME_ID = "5263045";
 const ZIP = "53216";
 
 function parseArgs(argv) {
@@ -73,7 +72,7 @@ async function main() {
   zmanimUrl.search = new URLSearchParams({
     cfg: "json",
     sec: "1",
-    geonameid: GEONAME_ID,
+    zip: ZIP,
     date
   });
 
