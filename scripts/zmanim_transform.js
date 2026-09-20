@@ -443,6 +443,7 @@ function buildPayload(input, options) {
     "Re\u2019eh": "Re'eh",
     "Shabbat": "Shabbos",
     "Shemot": "Shemos",
+    "Sukkot": "Succos",
     "Sh'lach": "Shelach",
     "Sh\u2019lach": "Shelach",
     "Shmini": "Shemini",

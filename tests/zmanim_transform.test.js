@@ -47,6 +47,15 @@ test("weekday afternoon keeps intentionally visible times only", () => {
   assert.deepEqual(result.times, [["Sunset", "8:28 PM"]]);
 });
 
+test("normalizes the Sukkot Torah reading to Succos", () => {
+  const input = fixture("2026-10-04", [
+    { category: "parashat", date: "2026-10-10", title_orig: "Parashat Sukkot" }
+  ]);
+  const result = buildPayload(input, { now: "2026-10-04T13:47:00-05:00" });
+
+  assert.equal(result.parasha, "Succos");
+});
+
 test("hidden mincha milestones remain absent later in the afternoon", () => {
   const result = buildPayload(fixture("2026-06-07", []), {
     now: "2026-06-07T18:54:00-05:00"
