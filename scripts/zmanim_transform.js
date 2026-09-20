@@ -606,7 +606,7 @@ function buildPayload(input, options) {
     const ascii = cleaned.replace(/\u2018|\u2019/g, "'");
     if (PARASHA_MAP[cleaned]) return PARASHA_MAP[cleaned];
     if (PARASHA_MAP[ascii]) return PARASHA_MAP[ascii];
-    return ascii;
+    return ascii.replace(/^Sukkot\b/i, "Succos");
   }
 
   function findHebrewDate(data, dateString) {
