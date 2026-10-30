@@ -911,7 +911,7 @@ function buildPayload(input, options) {
     } else if (sunrise && current >= sunrise && current < chatzot) {
       period = day === 6 ? "Shabbos Morning" : "Morning";
       relevantTimes = [
-        ["Shema (MGA)", z.sofZmanShmaMGA],
+        ["Shema (MGA)", latestMgaShema(z)],
         ["Shema (Gra)", z.sofZmanShma],
         ["Tefilla (Gra)", z.sofZmanTfilla],
         ["Chatzos", chatzot]
@@ -989,6 +989,11 @@ function buildPayload(input, options) {
         .map(([name, time]) => [name, typeof time === "string" ? time : formatClock(time)]),
       location
     };
+  }
+
+  function latestMgaShema(z) {
+    const candidates = Object.entries(z).filter(([key, value]) => key.startsWith("sofZmanShmaMGA") && value instanceof Date && Number.isFinite(value.getTime())).map(([, value]) => value);
+    return candidates.length ? new Date(Math.max(...candidates.map(value => value.getTime()))) : null;
   }
 
   function findNextZman(items, minchaItems, current) {

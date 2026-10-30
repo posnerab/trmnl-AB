@@ -185,3 +185,17 @@ test("Chanukah is active after sunset and special Shabbos metadata is included",
   assert.equal(result.holiday.detail, "Today");
   assert.equal(result.special_shabbos, "Shabbos Mevarchim Teves");
 });
+
+test("MGA selects the latest MGA variant and keeps Gra separate", () => {
+  const input = fixture("2026-10-30", []);
+  input.IDX_0.times.sofZmanShmaMGA = "2026-10-30T09:23:40-05:00";
+  input.IDX_0.times.sofZmanShmaMGA16Point1 = "2026-10-30T09:16:53-05:00";
+  input.IDX_0.times.sofZmanShmaMGA19Point8 = "2026-10-30T09:06:44-05:00";
+  input.IDX_0.times.sofZmanShmaBaalHatanya = "2026-10-30T09:57:31-05:00";
+  input.IDX_0.times.sofZmanShma = "2026-10-30T09:59:40-05:00";
+  const result = buildPayload(input, { now: "2026-10-30T08:00:00-05:00" });
+  assert.deepEqual(result.next_zman, ["Shema (MGA)", "9:23 AM"]);
+  assert.ok(result.times.some(([name, time]) => name === "Shema (Gra)" && time === "9:59 AM"));
+  input.IDX_0.times.sofZmanShmaMGA16Point1 = "2026-10-30T09:25:00-05:00";
+  assert.deepEqual(buildPayload(input, { now: "2026-10-30T08:00:00-05:00" }).next_zman, ["Shema (MGA)", "9:25 AM"]);
+});
