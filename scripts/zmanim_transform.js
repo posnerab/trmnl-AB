@@ -687,7 +687,7 @@ function buildPayload(input, options) {
   const hdate = findHebrewDate(calendarData, today);
   const parasha = findUpcomingParasha(calendarData, now, todayWeekday);
 
-  return buildCurrentPeriodPayload({
+  const payload = buildCurrentPeriodPayload({
     now,
     todayWeekday,
     times,
@@ -697,6 +697,60 @@ function buildPayload(input, options) {
     parasha,
     location: (zmanimData.location && zmanimData.location.title) || "Milwaukee, Wisconsin, USA"
   });
+
+  if (payload.error) return payload;
+  const calendarItems = (calendarData && calendarData.items) || [];
+  // Date arithmetic uses Gregorian date keys, not 24-hour intervals across DST.
+  const shiftKey = (key, days) => new Date(Date.parse(key + "T12:00:00Z") + days * 86400000).toISOString().slice(0, 10);
+  const jewishKey = times.sunset && now >= times.sunset ? shiftKey(today, 1) : today;
+  const jewishWeekday = new Date(jewishKey + "T12:00:00Z").getUTCDay();
+  const shabbosKey = shiftKey(jewishKey, (6 - jewishWeekday + 7) % 7);
+  const hebrewDay = calendarItems.find(e => e.category === "hebdate" && e.date === jewishKey);
+  const parashaItem = calendarItems.find(e => e.category === "parashat" && e.date === shabbosKey)
+    || calendarItems.find(e => e.category === "holiday" && e.subcat === "major" && e.date === shabbosKey);
+  const specialShabbos = calendarItems.filter(e => e.date === shabbosKey && (e.category === "mevarchim" || e.subcat === "shabbat"))
+    .map(e => (e.title || "").replace("Mevorchim Chodesh", "Shabbos Mevarchim").replace("Shabbat", "Shabbos")).join(" · ");
+  const holidays = calendarItems.filter(e => e.category === "holiday" && ["major", "minor", "fast"].includes(e.subcat) && !/^Erev /.test(e.title || ""));
+  const activeHoliday = holidays.find(e => (e.date.includes("T") ? shiftKey(e.date.slice(0, 10), 1) : e.date) === jewishKey);
+  let holiday = null;
+  if (activeHoliday) holiday = { name: holidayName(activeHoliday.title), detail: "Today", days: 0 };
+  else {
+    for (const event of holidays.slice().sort((a,b) => a.date.localeCompare(b.date))) {
+      const start = event.date.includes("T") || event.subcat === "fast" ? event.date.slice(0,10) : shiftKey(event.date, -1);
+      const days = Math.round((Date.parse(start + "T12:00:00Z") - Date.parse(today + "T12:00:00Z")) / 86400000);
+      if (days < 0 || (days === 0 && times.sunset && now >= times.sunset)) continue;
+      holiday = { name: holidayName(event.title), days, detail: days === 0 ? (event.subcat === "fast" ? "Today" : "Begins tonight") : `${days} ${days === 1 ? "day" : "days"} to go` };
+      break;
+    }
+  }
+  return Object.assign(payload, {
+    display_hdate: hebrewDay ? hebrewDay.hdate : payload.hdate,
+    hdate_hebrew: hebrewDay ? hebrewDay.hebrew || "" : "",
+    parasha_english: parashaItem ? normalizeParashaName(parashaItem.title_orig || parashaItem.title) : "Parasha unavailable",
+    parasha_hebrew: parashaItem ? parashaItem.hebrew || "" : "",
+    special_shabbos: specialShabbos,
+    holiday,
+    calendar_through: Object.keys(CBJ_MINCHA_SCHEDULE).sort().slice(-1)[0],
+    next_icon: zmanIcon(payload.next_zman ? payload.next_zman[0] : ""),
+    zman_rows: payload.times.map(([name, time]) => ({ name, time, icon: zmanIcon(name) }))
+  });
+
+  function holidayName(title) { return /^Chanukah:/.test(title || "") ? "Chanukah" : title; }
+
+  function zmanIcon(name) {
+    const sun = '<circle cx="12" cy="12" r="4"/><path d="M12 1v3m0 16v3M1 12h3m16 0h3M4 4l2 2m12 12 2 2M4 20l2-2M18 6l2-2"/>';
+    const moon = '<path d="M20 15A9 9 0 0 1 9 4a9 9 0 1 0 11 11Z"/>';
+    let path = '<circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/>';
+    if (/Shema|Tefilla|Daven/.test(name)) path = '<path d="M12 5v16M3 4c4-1 6 0 9 2 3-2 5-3 9-2v15c-4-1-6 0-9 2-3-2-5-3-9-2Z"/>';
+    else if (/Candle|Havdalah/.test(name)) path = '<path d="M8 22V11h8v11M5 22h14M12 1c-6 6-2 9 0 8 3 0 4-4 0-8Z"/>';
+    else if (/Mincha/.test(name)) path = '<path d="m2 9 10-6 10 6ZM4 21h16M6 10v8m6-8v8m6-8v8"/>';
+    else if (/Sunrise|Dawn/.test(name)) path = '<path d="M2 18h20M5 17a7 7 0 0 1 14 0M12 2v4m-8 1 3 3m13-3-3 3M9 22h6"/>';
+    else if (/Sunset/.test(name)) path = '<path d="M2 18h20M5 17a7 7 0 0 1 14 0M12 1v7m-3-3 3 3 3-3M4 8l2 2m14-2-2 2"/>';
+    else if (/Tzeis/.test(name)) path = '<path d="m12 2 3 7 7 1-5 5 1 7-6-4-6 4 1-7-5-5 7-1Z"/>';
+    else if (/Night|Midnight|Maariv|Malka/.test(name)) path = moon;
+    else if (/Chatzos/.test(name)) path = sun;
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + path + '</svg>';
+  }
 
   function formatDateParam(date) {
     const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", {

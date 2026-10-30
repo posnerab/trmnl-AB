@@ -65,7 +65,7 @@ async function main() {
 
   const date = requestedDate(args.at);
   const end = new Date(`${date}T12:00:00Z`);
-  end.setUTCDate(end.getUTCDate() + 7);
+  end.setUTCDate(end.getUTCDate() + 370);
   const endDate = end.toISOString().slice(0, 10);
 
   const zmanimUrl = new URL("https://www.hebcal.com/zmanim");
@@ -86,6 +86,7 @@ async function main() {
     c: "on",
     M: "on",
     lg: "a",
+    maj: "on", min: "on", mf: "on", nx: "on", ss: "on", mvch: "on", leyning: "off",
     start: date,
     end: endDate
   });

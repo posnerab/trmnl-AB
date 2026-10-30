@@ -150,3 +150,38 @@ test("CBJ local clocks do not hard-code the daylight-saving offset", () => {
   assert.doesNotMatch(source, /dateString}T\\${clock}:00-05:00/);
   assert.match(source, /timeZone: TZID/);
 });
+
+test("display calendar rolls at sunset and keeps bilingual parasha and holiday countdown", () => {
+  const input = fixture("2026-10-29", [
+    { category: "hebdate", date: "2026-10-30", hdate: "19 Cheshvan 5787", hebrew: "י״ט חשון" },
+    { category: "parashat", date: "2026-10-31", title_orig: "Parashat Vayera", hebrew: "פרשת וירא" },
+    { category: "holiday", subcat: "major", date: "2026-12-04T15:59:00-06:00", title: "Chanukah: 1 Candle" }
+  ]);
+  const result = buildPayload(input, { now: "2026-10-29T22:00:00-05:00" });
+  assert.equal(result.display_hdate, "19 Cheshvan 5787");
+  assert.equal(result.parasha_english, "Vayeira");
+  assert.equal(result.parasha_hebrew, "פרשת וירא");
+  assert.deepEqual(result.holiday, { name: "Chanukah", days: 36, detail: "36 days to go" });
+  assert.equal(result.calendar_through, "2026-12-31");
+  assert.match(result.next_icon, /^<svg/);
+  assert.ok(result.zman_rows.every(row => row.icon.includes('<svg') && row.time));
+});
+
+test("holiday countdown uses civil dates across DST and New Year", () => {
+  const input = fixture("2026-12-31", [
+    { category: "holiday", subcat: "minor", date: "2027-01-23", title: "Tu BiShvat" }
+  ]);
+  const result = buildPayload(input, { now: "2026-12-31T12:00:00-06:00" });
+  assert.deepEqual(result.holiday, { name: "Tu BiShvat", days: 22, detail: "22 days to go" });
+});
+
+test("Chanukah is active after sunset and special Shabbos metadata is included", () => {
+  const input = fixture("2026-12-04", [
+    { category: "holiday", subcat: "major", date: "2026-12-04T15:59:00-06:00", title: "Chanukah: 1 Candle" },
+    { category: "mevarchim", date: "2026-12-05", title: "Mevorchim Chodesh Teves" }
+  ]);
+  const result = buildPayload(input, { now: "2026-12-04T22:00:00-06:00" });
+  assert.equal(result.holiday.name, "Chanukah");
+  assert.equal(result.holiday.detail, "Today");
+  assert.equal(result.special_shabbos, "Shabbos Mevarchim Teves");
+});
