@@ -611,6 +611,34 @@ function buildPayload(input, options) {
     "2026-12-18": "16:00",
     "2026-12-25": "16:04"
   };
+
+  const CBJ_MAARIV_SCHEDULE = {
+    "2026-11-07": "17:36",
+    "2026-11-14": "17:28",
+    "2026-11-21": "17:23",
+    "2026-11-28": "17:19",
+    "2026-12-05": "17:17",
+    "2026-12-12": "17:17",
+    "2026-12-19": "17:19",
+    "2026-12-26": "17:22"
+  };
+
+  const CBJ_SPECIAL_EVENTS = {
+    "2026-12-20": [
+      {
+        "name": "Asara B’Teves · Fast Begins",
+        "clock": "06:07"
+      },
+      {
+        "name": "CBJ Maariv",
+        "clock": "16:45"
+      },
+      {
+        "name": "Asara B’Teves · Fast Ends",
+        "clock": "17:09"
+      }
+    ]
+  };
   // END GENERATED CBJ CALENDAR
 
   const PARASHA_MAP = {
@@ -681,7 +709,8 @@ function buildPayload(input, options) {
 
   const today = formatDateParam(now);
   const todayWeekday = weekday(now);
-  const times = parseTimes(zmanimData.times);
+  const times = parseTimesForDay(zmanimData, today);
+  if (!times) return { error: "No current-day Hebcal zmanim; refresh required" };
   const cbjMincha = parseCbjMincha(today);
   const cbjCandleLighting = parseCbjCandleLighting(today);
   const hdate = findHebrewDate(calendarData, today);
@@ -693,12 +722,33 @@ function buildPayload(input, options) {
     times,
     cbjMincha,
     cbjCandleLighting,
+    cbjMaariv: parseCbjMaariv(today),
+    cbjEvents: parseCbjEvents(today),
     hdate,
     parasha,
     location: (zmanimData.location && zmanimData.location.title) || "Milwaukee, Wisconsin, USA"
   });
 
   if (payload.error) return payload;
+  // Match NextZman's almanac-aware bridge. Never reuse today's clocks for tomorrow.
+  if (!payload.next_zman) {
+    const tomorrow = new Date(Date.parse(today + "T12:00:00Z") + 86400000).toISOString().slice(0, 10);
+    const tomorrowTimes = parseTimesForDay(zmanimData, tomorrow);
+    if (tomorrowTimes) {
+      const tomorrowStart = parseLocalClock(tomorrow, "00:00");
+      const following = buildCurrentPeriodPayload({
+        now: tomorrowStart, todayWeekday: weekday(tomorrowStart), times: tomorrowTimes,
+        cbjMincha: parseCbjMincha(tomorrow), cbjCandleLighting: parseCbjCandleLighting(tomorrow),
+        cbjMaariv: parseCbjMaariv(tomorrow), cbjEvents: parseCbjEvents(tomorrow),
+        hdate: findHebrewDate(calendarData, tomorrow), parasha, location: payload.location
+      });
+      if (following.next_zman) {
+        payload.next_zman = following.next_zman;
+        payload.times = following.times;
+        payload.next_day = true;
+      }
+    }
+  }
   const calendarItems = (calendarData && calendarData.items) || [];
   // Date arithmetic uses Gregorian date keys, not 24-hour intervals across DST.
   const shiftKey = (key, days) => new Date(Date.parse(key + "T12:00:00Z") + days * 86400000).toISOString().slice(0, 10);
@@ -797,10 +847,26 @@ function buildPayload(input, options) {
     }).format(date);
   }
 
-  function parseTimes(rawTimes) {
-    return Object.fromEntries(
-      Object.entries(rawTimes || {}).map(([key, value]) => [key, value ? new Date(value) : null])
-    );
+  function parseTimesForDay(data, day) {
+    const raw = data.times || {};
+    const batch = Object.values(raw).some(value => value && typeof value === "object");
+    if (!batch && data.date !== day) return null;
+    const values = Object.entries(raw).map(([key, value]) => {
+      const text = batch ? value && value[day] : value;
+      const time = text ? new Date(text) : null;
+      return [key, time && Number.isFinite(time.getTime()) ? time : null];
+    });
+    const parsed = Object.fromEntries(values);
+    return parsed.chatzot && parsed.sunset ? parsed : null;
+  }
+
+  function parseCbjMaariv(day) {
+    const clock = CBJ_MAARIV_SCHEDULE[day];
+    return clock ? parseLocalClock(day, clock) : null;
+  }
+
+  function parseCbjEvents(day) {
+    return (CBJ_SPECIAL_EVENTS[day] || []).map(event => [event.name, parseLocalClock(day, event.clock)]);
   }
 
   function parseCbjMincha(dateString) {
@@ -885,121 +951,69 @@ function buildPayload(input, options) {
     return month === "Tishrei" && day < 15;
   }
 
-  function buildCurrentPeriodPayload({ now: current, todayWeekday: day, times: z, cbjMincha, cbjCandleLighting, hdate: hd, parasha: p, location }) {
+  function buildCurrentPeriodPayload({ now: current, todayWeekday: day, times: z, cbjMincha, cbjCandleLighting, cbjMaariv, cbjEvents, hdate: hd, parasha: p, location }) {
     const sunrise = z.sunrise;
     const chatzot = z.chatzot;
     const sunset = z.sunset;
-    const tzeit72min = z.tzeit72min;
     const chatzotNight = z.chatzotNight;
+    // NextZman deliberately uses a fixed 24 hours, including DST transitions.
     const nextChatzotNight = chatzotNight ? addDays(chatzotNight, 1) : null;
-
-    if (!chatzot || !sunset) {
-      return { error: "Missing critical times" };
-    }
-
+    if (!chatzot || !sunset) return { error: "Missing critical times" };
+    const havdalah = addMinutes(sunset, 72);
     let period = "Morning";
     let relevantTimes = [];
 
-    if (chatzotNight && sunrise && current >= chatzotNight && current < sunrise) {
-      period = "Early Morning";
-      relevantTimes = [
-        ["Midnight", chatzotNight],
-        ["Dawn", z.alotHaShachar],
-        ["Earliest Daven", z.misheyakirMachmir],
-        ["Sunrise", sunrise]
-      ];
-    } else if (sunrise && current >= sunrise && current < chatzot) {
-      period = day === 6 ? "Shabbos Morning" : "Morning";
-      relevantTimes = [
-        ["Shema (MGA)", latestMgaShema(z)],
-        ["Shema (Gra)", z.sofZmanShma],
-        ["Tefilla (Gra)", z.sofZmanTfilla],
-        ["Chatzos", chatzot]
-      ];
-    } else if (current >= chatzot && current < sunset) {
+    if (current < chatzot) {
+      period = sunrise && current < sunrise ? "Early Morning" : day === 6 ? "Shabbos Morning" : "Morning";
+      if (chatzotNight && chatzotNight >= current && formatDateParam(chatzotNight) === formatDateParam(current)) {
+        relevantTimes.push([day === 0 ? "Latest Melave Malka" : "Chatzos", chatzotNight]);
+      }
+      relevantTimes.push(
+        ["Earliest Daven", sunrise ? addMinutes(sunrise, -72) : null],
+        ["Shema", latestShema(z)], ["Tefilla", z.sofZmanTfilla], ["Chatzos", chatzot]
+      );
+    } else if (current < sunset) {
       period = day === 5 ? "Erev Shabbos" : day === 6 ? "Shabbos Afternoon" : "Afternoon";
       if (day === 6) {
-        relevantTimes = [
-          ["Sunset", sunset],
-          ["Maariv", addMinutes(sunset, 60)],
-          ["Havdalah", tzeit72min]
-        ];
+        relevantTimes = [["Sunset", sunset], ["Maariv", cbjMaariv], ["Havdalah", havdalah]];
       } else if (day === 5) {
         const candleLighting = cbjCandleLighting ||
           (isEarlyShabbosSeason(hd) && z.plagHaMincha
-            ? addMinutes(z.plagHaMincha, 11)
-            : addMinutes(sunset, -18));
-        relevantTimes = [
-          // Temporarily hidden; uncomment to restore Mincha Gedola.
-          // ["Mincha Gedola", z.minchaGedola],
-          // Temporarily hidden; uncomment to restore Plag HaMincha.
-          // ["Plag HaMincha", z.plagHaMincha],
-          ["Candle Lighting", candleLighting],
-          ["Sunset", addMinutes(sunset, -1)]
-        ];
-      } else {
-        relevantTimes = [
-          // Temporarily hidden; uncomment to restore Mincha Gedola.
-          // ["Mincha Gedola", z.minchaGedola],
-          // Temporarily hidden; uncomment to restore Mincha Ketana.
-          // ["Mincha Ketana", z.minchaKetana],
-          // Temporarily hidden; uncomment to restore Plag HaMincha.
-          // ["Plag HaMincha", z.plagHaMincha],
-          ["Sunset", sunset]
-        ];
-      }
-    } else if (day === 6 && sunset && current >= sunset) {
-      const havdalah = addMinutes(sunset, 73);
+            ? addMinutes(z.plagHaMincha, 11) : addMinutes(sunset, -18));
+        relevantTimes = [["Candle Lighting", candleLighting], ["Sunset", addMinutes(sunset, -1)]];
+      } else relevantTimes = [["Sunset", sunset]];
+    } else if (day === 6) {
       if (current < havdalah) {
         period = "Shabbos Evening";
-        relevantTimes = [
-          ["Sunset", addMinutes(sunset, -1)],
-          ["Maariv", addMinutes(sunset, 59)],
-          ["Havdalah", havdalah]
-        ];
+        relevantTimes = [["Sunset", addMinutes(sunset, -1)], ["Maariv", cbjMaariv], ["Havdalah", havdalah]];
       } else {
         period = "Motzei Shabbos";
-        relevantTimes = [
-          ["Havdalah", havdalah],
-          ["Latest Maleve Malka", nextChatzotNight]
-        ];
+        relevantTimes = [["Havdalah", havdalah], ["Latest Melave Malka", nextChatzotNight]];
       }
-    } else if (current >= sunset || (chatzotNight && current < chatzotNight)) {
+    } else {
       period = "Evening";
-      relevantTimes = [
-        ["Tzeis (72 min)", tzeit72min],
-        ["Chatzos Night", nextChatzotNight]
-      ];
+      relevantTimes = [["Tzeis", z.tzeit72min], ["Chatzos", nextChatzotNight]];
     }
-
-    if (current >= chatzot && current < sunset && cbjMincha.length) {
-      relevantTimes.push(...cbjMinchaItems(cbjMincha));
-    }
-
-    const nextZman = findNextZman(relevantTimes, cbjMincha, current);
-
+    relevantTimes.push(...cbjMinchaItems(cbjMincha), ...(cbjEvents || []));
     return {
-      period,
-      current_time: formatClock(current),
-      date: formatDisplayDate(current),
-      hdate: hd,
-      parasha: p,
-      next_zman: nextZman,
-      times: filterDisplayTimes(relevantTimes, current)
-        .map(([name, time]) => [name, typeof time === "string" ? time : formatClock(time)]),
+      period, current_time: formatClock(current), date: formatDisplayDate(current),
+      hdate: hd, parasha: p, next_zman: findNextZman(relevantTimes, current),
+      next_day: false,
+      times: filterDisplayTimes(relevantTimes, current).map(([name, time]) => [name, formatClock(time)]),
       location
     };
   }
 
-  function latestMgaShema(z) {
-    const candidates = Object.entries(z).filter(([key, value]) => key.startsWith("sofZmanShmaMGA") && value instanceof Date && Number.isFinite(value.getTime())).map(([, value]) => value);
-    return candidates.length ? new Date(Math.max(...candidates.map(value => value.getTime()))) : null;
+  function latestShema(z) {
+    const candidates = Object.entries(z).filter(([key, value]) =>
+      (key === "sofZmanShma" || key.startsWith("sofZmanShmaMGA")) && value instanceof Date && Number.isFinite(value.getTime())
+    ).map(([, value]) => value.getTime());
+    return candidates.length ? new Date(Math.max(...candidates)) : null;
   }
 
-  function findNextZman(items, minchaItems, current) {
+  function findNextZman(items, current) {
     const candidates = items
       .filter((item) => item[1] instanceof Date && !Number.isNaN(item[1].getTime()))
-      .concat(cbjMinchaItems(minchaItems))
       .filter((item) => item[1].getTime() >= current.getTime())
       .sort((a, b) => a[1].getTime() - b[1].getTime());
     if (!candidates.length) return null;
@@ -1007,35 +1021,11 @@ function buildPayload(input, options) {
   }
 
   function filterDisplayTimes(items, current) {
-    let mostRecentPast = null;
-    const future = [];
-    const undated = [];
-    const nowValue = current.getTime();
-    const maxPastAgeMs = 30 * 60 * 1000;
-
-    for (const item of items) {
-      const time = item[1];
-      if (!time) continue;
-      if (item[0] === "CBJ Mincha 1" && time instanceof Date && time.getTime() <= nowValue) {
-        continue;
-      }
-      if (!(time instanceof Date) || Number.isNaN(time.getTime())) {
-        undated.push(item);
-      } else if (time.getTime() < nowValue) {
-        if (!mostRecentPast || time.getTime() > mostRecentPast[1].getTime()) {
-          mostRecentPast = item;
-        }
-      } else {
-        future.push(item);
-      }
-    }
-    future.sort((a, b) => a[1].getTime() - b[1].getTime());
-    const recentPast = mostRecentPast &&
-      nowValue - mostRecentPast[1].getTime() <= maxPastAgeMs
-      ? [mostRecentPast]
-      : [];
-    return recentPast.concat(future, undated);
+    // Show precisely the engine's upcoming selections; no expired 30-minute rows.
+    return items.filter(([, time]) => time instanceof Date && Number.isFinite(time.getTime()) && time >= current)
+      .sort((a, b) => a[1].getTime() - b[1].getTime());
   }
+
 }
 
 if (typeof module !== "undefined") {

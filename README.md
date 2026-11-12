@@ -40,7 +40,9 @@ npm test
 CBJ Mincha and candle-lighting constants in the Zmanim transform are generated
 from the sibling `shared/cbj_calendar/schedule.json`. Update that canonical
 calendar and run `shared/scripts/cbj_calendar.py sync`; do not hand-edit the
-generated CBJ blocks in either transform copy.
+generated CBJ blocks in either transform copy. Those blocks also carry published
+Maariv and special events. The transform follows NextZman's selection and labels;
+see [the plugin's parity notes](plugins/zmanim/README.md#nextzman-parity).
 
 ## MCP and Credentials
 

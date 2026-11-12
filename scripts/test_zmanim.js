@@ -50,7 +50,8 @@ function resolveNow(at, zmanim) {
   if (/(Z|[+-]\d{2}:\d{2})$/i.test(at)) return new Date(at);
 
   const normalized = at.replace(" ", "T");
-  const sample = zmanim.times.sunrise;
+  const sample = typeof zmanim.times.sunrise === "string"
+    ? zmanim.times.sunrise : zmanim.times.sunrise[requestedDate(at)];
   const offset = sample.match(/([+-]\d{2}:\d{2})$/);
   if (!offset) throw new Error("Could not determine Milwaukee UTC offset from Hebcal data");
   return new Date(`${normalized}${normalized.length === 16 ? ":00" : ""}${offset[1]}`);
@@ -69,11 +70,14 @@ async function main() {
   const endDate = end.toISOString().slice(0, 10);
 
   const zmanimUrl = new URL("https://www.hebcal.com/zmanim");
+  const tomorrow = new Date(`${date}T12:00:00Z`);
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
   zmanimUrl.search = new URLSearchParams({
     cfg: "json",
     sec: "1",
     zip: ZIP,
-    date
+    start: date,
+    end: tomorrow.toISOString().slice(0, 10)
   });
 
   const calendarUrl = new URL("https://www.hebcal.com/hebcal");

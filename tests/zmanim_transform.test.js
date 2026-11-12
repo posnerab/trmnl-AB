@@ -63,25 +63,23 @@ test("hidden mincha milestones remain absent later in the afternoon", () => {
   assert.deepEqual(result.times, [["Sunset", "8:28 PM"]]);
 });
 
-test("most recent past zman remains visible through exactly 30 minutes", () => {
+test("only the selected later Shema appears in the morning", () => {
   const result = buildPayload(fixture("2026-06-07", []), {
     now: "2026-06-07T08:55:00-05:00"
   });
   assert.deepEqual(result.times, [
-    ["Shema (MGA)", "8:25 AM"],
-    ["Shema (Gra)", "9:01 AM"],
-    ["Tefilla (Gra)", "10:18 AM"],
+    ["Shema", "9:01 AM"],
+    ["Tefilla", "10:18 AM"],
     ["Chatzos", "12:50 PM"]
   ]);
 });
 
-test("past zman disappears after 30 minutes while future zmanim remain", () => {
+test("passed selected zman disappears immediately while future zmanim remain", () => {
   const result = buildPayload(fixture("2026-06-07", []), {
-    now: "2026-06-07T08:55:01-05:00"
+    now: "2026-06-07T09:01:01-05:00"
   });
   assert.deepEqual(result.times, [
-    ["Shema (Gra)", "9:01 AM"],
-    ["Tefilla (Gra)", "10:18 AM"],
+    ["Tefilla", "10:18 AM"],
     ["Chatzos", "12:50 PM"]
   ]);
 });
@@ -92,8 +90,8 @@ test("weekday evening points chatzos night at the coming midnight", () => {
   });
   assert.equal(result.period, "Evening");
   assert.deepEqual(result.times, [
-    ["Tzeis (72 min)", "9:40 PM"],
-    ["Chatzos Night", "12:50 AM"]
+    ["Tzeis", "9:40 PM"],
+    ["Chatzos", "12:50 AM"]
   ]);
 });
 
@@ -125,7 +123,6 @@ test("passed CBJ Mincha 1 is removed while future CBJ Mincha 2 remains", () => {
   assert.deepEqual(result.times, [
     ["CBJ Mincha 2", "7:40 PM"],
     ["Sunset", "8:28 PM"],
-    ["Maariv", "9:28 PM"],
     ["Havdalah", "9:40 PM"]
   ]);
 });
@@ -137,7 +134,6 @@ test("Shabbos afternoon retains its existing sunset and havdalah schedule", () =
   assert.equal(result.period, "Shabbos Afternoon");
   assert.deepEqual(result.times, [
     ["Sunset", "8:28 PM"],
-    ["Maariv", "9:28 PM"],
     ["Havdalah", "9:40 PM"]
   ]);
 });
@@ -186,16 +182,81 @@ test("Chanukah is active after sunset and special Shabbos metadata is included",
   assert.equal(result.special_shabbos, "Shabbos Mevarchim Teves");
 });
 
-test("MGA selects the latest MGA variant and keeps Gra separate", () => {
+test("one Shema chooses the latest Gra or MGA variant, excluding Baal Hatanya", () => {
   const input = fixture("2026-10-30", []);
   input.IDX_0.times.sofZmanShmaMGA = "2026-10-30T09:23:40-05:00";
   input.IDX_0.times.sofZmanShmaMGA16Point1 = "2026-10-30T09:16:53-05:00";
-  input.IDX_0.times.sofZmanShmaMGA19Point8 = "2026-10-30T09:06:44-05:00";
-  input.IDX_0.times.sofZmanShmaBaalHatanya = "2026-10-30T09:57:31-05:00";
+  input.IDX_0.times.sofZmanShmaBaalHatanya = "2026-10-30T10:57:31-05:00";
   input.IDX_0.times.sofZmanShma = "2026-10-30T09:59:40-05:00";
   const result = buildPayload(input, { now: "2026-10-30T08:00:00-05:00" });
-  assert.deepEqual(result.next_zman, ["Shema (MGA)", "9:23 AM"]);
-  assert.ok(result.times.some(([name, time]) => name === "Shema (Gra)" && time === "9:59 AM"));
-  input.IDX_0.times.sofZmanShmaMGA16Point1 = "2026-10-30T09:25:00-05:00";
-  assert.deepEqual(buildPayload(input, { now: "2026-10-30T08:00:00-05:00" }).next_zman, ["Shema (MGA)", "9:25 AM"]);
+  assert.deepEqual(result.next_zman, ["Shema", "9:59 AM"]);
+  assert.equal(result.times.filter(([name]) => name.includes("Shema")).length, 1);
+  input.IDX_0.times.sofZmanShmaMGA16Point1 = "2026-10-30T10:01:00-05:00";
+  assert.deepEqual(buildPayload(input, { now: "2026-10-30T08:00:00-05:00" }).next_zman, ["Shema", "10:01 AM"]);
+});
+
+test("Earliest Daven is sunrise minus 72 minutes with an inclusive transition", () => {
+  const input = fixture("2026-06-08", []);
+  const expected = [["Earliest Daven", "4:00 AM"], ["Shema", "9:01 AM"], ["Tefilla", "10:18 AM"], ["Chatzos", "12:50 PM"]];
+  assert.deepEqual(buildPayload(input, { now: "2026-06-08T03:00:00-05:00" }).times, expected);
+  assert.deepEqual(buildPayload(input, { now: "2026-06-08T04:00:00-05:00" }).next_zman, expected[0]);
+  assert.deepEqual(buildPayload(input, { now: "2026-06-08T04:00:01-05:00" }).next_zman, expected[1]);
+});
+
+test("civil midnight selects Chatzos or Sunday Melave Malka before morning", () => {
+  assert.deepEqual(buildPayload(fixture("2026-06-08", []), { now: "2026-06-08T00:00:00-05:00" }).next_zman, ["Chatzos", "12:50 AM"]);
+  assert.deepEqual(buildPayload(fixture("2026-06-07", []), { now: "2026-06-07T00:00:00-05:00" }).next_zman, ["Latest Melave Malka", "12:50 AM"]);
+});
+
+test("Shabbos Havdalah stays sunset plus 72 at every evening boundary", () => {
+  const input = fixture("2026-06-13", []);
+  // An inconsistent upstream nightfall must not alter Havdalah's fixed offset.
+  input.IDX_0.times.tzeit72min = "2026-06-13T22:00:00-05:00";
+  for (const clock of ["20:28:00", "21:39:59", "21:40:00"]) {
+    assert.deepEqual(buildPayload(input, { now: `2026-06-13T${clock}-05:00` }).next_zman, ["Havdalah", "9:40 PM"]);
+  }
+  const after = buildPayload(input, { now: "2026-06-13T21:40:01-05:00" });
+  assert.equal(after.period, "Motzei Shabbos");
+  assert.deepEqual(after.next_zman, ["Latest Melave Malka", "12:50 AM"]);
+});
+
+test("published Maariv and special fast events match the shared CBJ calendar", () => {
+  const shabbos = fixture("2026-11-14", []);
+  const result = buildPayload(shabbos, { now: "2026-11-14T16:00:00-06:00" });
+  assert.ok(result.times.some(([name, time]) => name === "Maariv" && time === "5:28 PM"));
+  const fast = buildPayload(fixture("2026-12-20", []), { now: "2026-12-20T16:30:00-06:00" });
+  assert.deepEqual(fast.next_zman, ["CBJ Maariv", "4:45 PM"]);
+  assert.ok(fast.times.some(([name, time]) => name === "Asara B’Teves · Fast Ends" && time === "5:09 PM"));
+});
+
+function batch(...inputs) {
+  const times = {};
+  for (const input of inputs) for (const [key, value] of Object.entries(input.IDX_0.times)) {
+    (times[key] ||= {})[input.IDX_0.date] = value;
+  }
+  return { IDX_0: { times, location: inputs[0].IDX_0.location }, IDX_1: { items: inputs.flatMap(input => input.IDX_1.items) } };
+}
+
+test("Friday's final-minute gap bridges to the actual tomorrow morning data", () => {
+  const today = fixture("2026-06-12", []), tomorrow = fixture("2026-06-13", []);
+  const result = buildPayload(batch(today, tomorrow), { now: "2026-06-12T20:27:01-05:00" });
+  assert.equal(result.period, "Erev Shabbos");
+  assert.equal(result.next_day, true);
+  assert.deepEqual(result.next_zman, ["Chatzos", "12:50 AM"]);
+  assert.equal(buildPayload(today, { now: "2026-06-12T20:27:01-05:00" }).next_zman, null);
+});
+
+test("missing current-day polling data fails closed instead of reusing stale clocks", () => {
+  const yesterday = fixture("2026-06-07", []);
+  assert.match(buildPayload(yesterday, { now: "2026-06-08T10:00:00-05:00" }).error, /current-day/);
+  assert.match(buildPayload(batch(yesterday), { now: "2026-06-08T10:00:00-05:00" }).error, /current-day/);
+});
+
+test("batch selection honors Milwaukee civil days across UTC and DST boundaries", () => {
+  const before = fixture("2026-11-01", []), after = fixture("2026-11-02", []);
+  for (const input of [before, after]) for (const [key, value] of Object.entries(input.IDX_0.times)) {
+    input.IDX_0.times[key] = value.replace("-05:00", "-06:00");
+  }
+  assert.deepEqual(buildPayload(batch(before, after), { now: "2026-11-02T00:00:00-06:00" }).next_zman, ["Chatzos", "12:50 AM"]);
+  assert.equal(buildPayload(batch(before, after), { now: "2026-11-02T03:00:00Z" }).period, "Evening");
 });
