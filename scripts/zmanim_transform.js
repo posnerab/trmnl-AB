@@ -679,16 +679,15 @@ function buildPayload(input, options) {
     "V'Zos Habracha": "Vezos Haberachah"
   };
 
-  function candidates(value) {
-    if (!value) return new Array();
+  function candidates(value, depth = 0) {
+    if (!value || depth > 6) return [];
     if (Array.isArray(value)) return value;
 
     const found = [value];
-    for (const key of ["IDX_0", "IDX_1", "idx_0", "idx_1", "data", "body", "response"]) {
-      if (value[key]) found.push(value[key]);
-    }
-    if (value.data && typeof value.data === "object") {
-      found.push(...candidates(value.data));
+    for (const key of Object.keys(value)) {
+      if (/^(IDX_\d+|idx_\d+|private_plugin_\d+|weather_\d+|lunar_calendar_\d+|merge_variables|data|body|response|zmanim|calendar)$/.test(key)) {
+        found.push(...candidates(value[key], depth + 1));
+      }
     }
     return found;
   }
@@ -775,15 +774,85 @@ function buildPayload(input, options) {
   }
   return Object.assign(payload, {
     display_hdate: hebrewDay ? hebrewDay.hdate : payload.hdate,
-    hdate_hebrew: hebrewDay ? hebrewDay.hebrew || "" : "",
+    hdate_hebrew: hebrewDateWithYear(hebrewDay),
     parasha_english: parashaItem ? normalizeParashaName(parashaItem.title_orig || parashaItem.title) : "Parasha unavailable",
-    parasha_hebrew: parashaItem ? parashaItem.hebrew || "" : "",
+    parasha_hebrew: parashaItem ? (parashaItem.hebrew || "").replace(/^(פרשת|פרשה)\s+/, "") : "",
     special_shabbos: specialShabbos,
     holiday,
     calendar_through: Object.keys(CBJ_MINCHA_SCHEDULE).sort().slice(-1)[0],
     next_icon: zmanIcon(payload.next_zman ? payload.next_zman[0] : ""),
-    zman_rows: payload.times.map(([name, time]) => ({ name, time, icon: zmanIcon(name) }))
+    zman_rows: payload.times.map(([name, time]) => ({ name, time, icon: zmanIcon(name) })),
+    following_rows: payload.times.slice(1).map(([name, time]) => ({ name, time, icon: zmanIcon(name) })),
+    weather: weatherSummary(),
+    air_quality: airQualitySummary(),
+    lunar: lunarSummary(),
+    calendar_expired: today > Object.keys(CBJ_MINCHA_SCHEDULE).sort().slice(-1)[0]
   });
+
+  function hebrewDateWithYear(day) {
+    if (!day || !day.hebrew) return "";
+    const year = Number((day.hdate || "").match(/\d{4}$/)?.[0]);
+    if (!year) return day.hebrew;
+    // Hebcal's daily Hebrew label omits the year. Match NextZman's short year.
+    let rest = year % 1000, letters = "";
+    for (const [value, letter] of [[400,"ת"],[300,"ש"],[200,"ר"],[100,"ק"],[90,"צ"],[80,"פ"],[70,"ע"],[60,"ס"],[50,"נ"],[40,"מ"],[30,"ל"],[20,"כ"]]) {
+      while (rest >= value) { letters += letter; rest -= value; }
+    }
+    if (rest === 15 || rest === 16) { letters += rest === 15 ? "טו" : "טז"; rest = 0; }
+    if (rest >= 10) { letters += "י"; rest -= 10; }
+    if (rest) letters += "אבגדהוזחט"[rest - 1];
+    const shortYear = letters.length > 1 ? letters.slice(0, -1) + "״" + letters.slice(-1) : letters + "׳";
+    const nativeDate = day.hebrew.replace(new RegExp("\\s+(?:ה[׳']?)?" + shortYear + "$"), "");
+    return nativeDate + " " + shortYear;
+  }
+
+  function numeric(value) {
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
+  }
+  function weatherSummary() {
+    const source = inputs.find(v => v && v.forecast && v.forecast.right_now);
+    if (!source) return null;
+    const current = source.forecast.right_now, today = source.forecast.today || {};
+    const observed = numeric(source.meta?.current_conditions?.time);
+    const age = observed === null ? null : now.getTime() / 1000 - observed;
+    if (age !== null && (age > 3 * 3600 || age < -3600)) return { unavailable: true, detail: "Weather update delayed" };
+    const temperature = numeric(current.temperature);
+    if (temperature === null) return null;
+    return { temperature: Math.round(temperature), feels_like: numeric(current.feels_like),
+      high: numeric(today.maxtemp), low: numeric(today.mintemp),
+      conditions: current.conditions || source.right_now_conditions || "",
+      icon: weatherIcon(current.icon || ""),
+      precipitation: numeric(today.precip?.probability),
+      wind: numeric(current.wind?.max), wind_unit: current.wind?.units || "",
+      observed_at: observed ? formatClock(new Date(observed * 1000)) : "" };
+  }
+  function airQualitySummary() {
+    const source = inputs.find(v => v && numeric(v.aqi) !== null);
+    if (!source || source.error || source.aqi < 0) return null;
+    return { value: Math.round(source.aqi), status: source.status || "",
+      pollutant: source.pollutant_name || "", pm25: numeric(source.pm25) };
+  }
+  function lunarSummary() {
+    const source = inputs.find(v => v && v.current_phase && numeric(v.illumination) !== null);
+    if (!source) return null;
+    const illumination = Math.max(0, Math.min(100, source.illumination));
+    const waxing = !/waning|third/i.test(source.current_phase.keyname || source.current_phase.name || "");
+    const radius = 23, width = Math.abs(1 - illumination / 50) * radius;
+    const side = waxing ? 1 : 0;
+    const terminator = illumination <= 50 ? 1 - side : side;
+    const lit = `<path d="M28 5A23 23 0 0 ${side} 28 51A${width.toFixed(2)} 23 0 0 ${terminator} 28 5" fill="white"/>`;
+    return { name: source.current_phase.name, illumination: Math.round(illumination),
+      next_full_moon: source.next_full_moon, next_phase: source.next_phase,
+      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="24" fill="currentColor"/>' + lit + '</svg>' };
+  }
+  function weatherIcon(name) {
+    const sun = '<circle cx="12" cy="12" r="5"/><path d="M12 1v3m0 16v3M1 12h3m16 0h3M4 4l2 2m12 12 2 2M4 20l2-2M18 6l2-2"/>';
+    let path = '<path d="M5 18a4 4 0 0 1-1-8 7 7 0 0 1 13-2 5 5 0 1 1 1 10Z"/>';
+    if (/clear|sunny/.test(name)) path = sun;
+    if (/rain|drizzle/.test(name)) path += '<path d="m7 21-1 2m6-2-1 2m6-2-1 2"/>';
+    if (/snow|sleet/.test(name)) path += '<path d="M6 21h2m-1-1v2m5-1h2m-1-1v2m5-1h2m-1-1v2"/>';
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + path + '</svg>';
+  }
 
   function holidayName(title) { return /^Chanukah:/.test(title || "") ? "Chanukah" : title; }
 

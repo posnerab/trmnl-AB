@@ -156,11 +156,59 @@ test("display calendar rolls at sunset and keeps bilingual parasha and holiday c
   const result = buildPayload(input, { now: "2026-10-29T22:00:00-05:00" });
   assert.equal(result.display_hdate, "19 Cheshvan 5787");
   assert.equal(result.parasha_english, "Vayeira");
-  assert.equal(result.parasha_hebrew, "פרשת וירא");
+  assert.equal(result.parasha_hebrew, "וירא");
+  assert.equal(result.hdate_hebrew, "י״ט חשון תשפ״ז");
   assert.deepEqual(result.holiday, { name: "Chanukah", days: 36, detail: "36 days to go" });
   assert.equal(result.calendar_through, "2026-12-31");
   assert.match(result.next_icon, /^<svg/);
   assert.ok(result.zman_rows.every(row => row.icon.includes('<svg') && row.time));
+});
+
+test("Plugin Merge unwraps private sources and retains native weather units and zero AQI", () => {
+  const hebcal = fixture("2026-06-07", []);
+  const result = buildPayload({
+    private_plugin_123: { merge_variables: { zmanim: hebcal.IDX_0, calendar: hebcal.IDX_1 } },
+    weather_456: { meta: { current_conditions: { time: Date.parse("2026-06-07T14:00:00-05:00") / 1000 } },
+      forecast: { right_now: { temperature: 75, feels_like: 74, conditions: "Clear", icon: "clear-day" },
+        today: { maxtemp: 80, mintemp: 58, precip: { probability: 0 } } } },
+    private_plugin_789: { merge_variables: { data: { aqi: 0, status: "Good" } } },
+    lunar_calendar_100: { illumination: 50, current_phase: { name: "First Quarter", keyname: "first_quarter" } }
+  }, { now: "2026-06-07T14:00:00-05:00" });
+  assert.deepEqual(result.next_zman, ["Sunset", "8:28 PM"]);
+  assert.equal(result.weather.temperature, 75);
+  assert.equal(result.weather.precipitation, 0);
+  assert.deepEqual(result.air_quality, { value: 0, status: "Good", pollutant: "", pm25: null });
+  assert.equal(result.lunar.illumination, 50);
+  assert.match(result.lunar.icon, /^<svg/);
+});
+
+test("missing or stale environment sources never remove the zmanim", () => {
+  const hebcal = fixture("2026-06-07", []);
+  const result = buildPayload({ ...hebcal,
+    weather_1: { meta: { current_conditions: { time: Date.parse("2026-06-06T14:00:00-05:00") / 1000 } },
+      forecast: { right_now: { temperature: 75 } } },
+    private_plugin_2: { merge_variables: { data: { aqi: null, error: "Unavailable" } } }
+  }, { now: "2026-06-07T14:00:00-05:00" });
+  assert.ok(result.next_zman);
+  assert.equal(result.weather.unavailable, true);
+  assert.equal(result.air_quality, null);
+  assert.equal(result.lunar, null);
+});
+
+test("Hebrew year removes the thousands prefix without duplicating an existing year", () => {
+  const input = fixture("2026-06-07", []);
+  Object.assign(input.IDX_1.items[0], { hdate: "22 Sivan 5786", hebrew: "כ״ב סיון ה׳תשפ״ו" });
+  const result = buildPayload(input, { now: "2026-06-07T14:00:00-05:00" });
+  assert.equal(result.hdate_hebrew, "כ״ב סיון תשפ״ו");
+});
+
+test("Hebrew month names beginning with tav are never mistaken for a year", () => {
+  for (const month of ["תמוז", "תשרי", "טבת"]) {
+    const input = fixture("2026-06-07", []);
+    Object.assign(input.IDX_1.items[0], { hdate: "22 Sivan 5786", hebrew: "כ״ב " + month });
+    assert.equal(buildPayload(input, { now: "2026-06-07T14:00:00-05:00" }).hdate_hebrew,
+      "כ״ב " + month + " תשפ״ו");
+  }
 });
 
 test("holiday countdown uses civil dates across DST and New Year", () => {
