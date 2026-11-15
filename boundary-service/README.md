@@ -38,7 +38,7 @@ to their own freshness checks. Ambiguous refresh submissions are not replayed.
 Redirect image is verified and ongoing source refresh is configured. A hidden
 merged plugin does not continue scheduled source updates by itself. A legacy
 `user_` account key can create/configure Redirect but cannot add playlist items
-or call the current refresh API. Use a current scoped account key with `read`
+or call the current refresh API. Use a current account key with `read`
 and `content` access to the existing source/merge plugins and this device, or
 complete the playlist setup in the signed-in UI. Do not bypass these limits.
 The runtime key stays in the existing shared credential store; only its alias
@@ -97,18 +97,25 @@ belongs in `/etc/trmnl-boundary.env`.
   display rollback. Restore backed-up service/source/vhost files as needed,
   validate nginx before reload, and restart only this service. Keep backups.
 
-## Installed state (November 14, 2026)
+## Installed state (November 15, 2026)
 
 The service and HTTPS endpoint are installed and verified. Redirect instance
-`541366` has the endpoint configured; it is not yet in the device playlist.
-Original item `887709` remains the sole visible item. Activation is pending
-playlist access and a current account API credential for continued refresh of
-source plugins after hiding the original merged item. Local browser access was
-disabled during this release, and the available account key is legacy.
+`541366` is the sole visible playlist item (`908391`) on device `27064`.
+Original item `887709` is hidden and retained for rollback. The Pi uses encrypted
+credential alias `trmnl:boundary_api` to refresh the original merged plugin and
+its sources every 15 minutes, even while hidden. The owner explicitly requested
+full account access for this separate key; the legacy key remains unchanged.
+`waits_for_next_render` is disabled so it cannot extend Redirect's wake timing.
+The existing midnight–5:30 AM device sleep schedule is preserved.
 
 Validation: 265 Node tests passed; actual Pi rendering switched Latest Melave
 Malka to tomorrow's Earliest Daven across a simulated timestamp boundary; public
 PNG is 800x480, 1-bit, with correct Content-Length. All 74 origin security checks
 passed. Public checks passed 79/81; the two failures are unrelated existing
-AltRainbow Ally routes returning 502. A photograph or boundary-aligned hardware
-check-in is not yet verified. Source backups and detailed receipts stay local.
+AltRainbow Ally routes returning 502. On November 15 the device checked in at 9:45:50 AM Central through Redirect,
+and nginx recorded its successful 5,999-byte image download two seconds later.
+TRMNL accepted a 796-second sleep, scheduling the next check-in for 9:59:07 AM,
+about four seconds after Tefilla's 9:59:03 boundary. The hidden merged source also
+completed an explicit API refresh. This proves image delivery and accepted wake
+timing, not a photograph of the panel or a subsequently observed transition.
+Source backups and detailed receipts stay local.
