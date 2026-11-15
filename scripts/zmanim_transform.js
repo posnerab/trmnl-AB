@@ -12,6 +12,7 @@ function run(input) {
 function buildPayload(input, options) {
   const TZID = "America/Chicago";
   const now = options && options.now ? new Date(options.now) : new Date();
+  const transitionTimes = [];
   // BEGIN GENERATED CBJ CALENDAR - shared/cbj_calendar/schedule.json
   const CBJ_MINCHA_SCHEDULE = {
     "2026-07-01": [
@@ -773,6 +774,9 @@ function buildPayload(input, options) {
     }
   }
   return Object.assign(payload, {
+    ...(options && options.transitionMetadata ? {
+      next_transition_at: new Date(Math.min(...transitionTimes.filter(t => t > now.getTime()))).toISOString()
+    } : {}),
     display_hdate: hebrewDay ? hebrewDay.hdate : payload.hdate,
     hdate_hebrew: hebrewDateWithYear(hebrewDay),
     parasha_english: parashaItem ? normalizeParashaName(parashaItem.title_orig || parashaItem.title) : "Parasha unavailable",
@@ -1064,6 +1068,15 @@ function buildPayload(input, options) {
       relevantTimes = [["Tzeis", z.tzeit72min], ["Chatzos", nextChatzotNight]];
     }
     relevantTimes.push(...cbjMinchaItems(cbjMincha), ...(cbjEvents || []));
+    if (options && options.transitionMetadata) {
+      // Event rows are inclusive; period/date changes are exclusive. Advance
+      // rows one millisecond after their event and never infer from HH:mm text.
+      transitionTimes.push(...relevantTimes.filter(([, t]) => t instanceof Date && Number.isFinite(t.getTime())).map(([, t]) => t.getTime() + 1));
+      transitionTimes.push(...[sunrise, chatzot, sunset, day === 6 ? havdalah : null]
+        .filter(t => t instanceof Date && Number.isFinite(t.getTime())).map(t => t.getTime()));
+      const nextKey = new Date(Date.parse(formatDateParam(current) + "T12:00:00Z") + 86400000).toISOString().slice(0, 10);
+      transitionTimes.push(parseLocalClock(nextKey, "00:00").getTime());
+    }
     return {
       period, current_time: formatClock(current), date: formatDisplayDate(current),
       hdate: hd, parasha: p, next_zman: findNextZman(relevantTimes, current),

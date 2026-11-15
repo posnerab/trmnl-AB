@@ -308,3 +308,30 @@ test("batch selection honors Milwaukee civil days across UTC and DST boundaries"
   assert.deepEqual(buildPayload(batch(before, after), { now: "2026-11-02T00:00:00-06:00" }).next_zman, ["Chatzos", "12:50 AM"]);
   assert.equal(buildPayload(batch(before, after), { now: "2026-11-02T03:00:00Z" }).period, "Evening");
 });
+
+test('boundary metadata uses exact selected event seconds and inclusive rows', () => {
+  const input = fixture('2026-06-07', []);
+  input.IDX_0.times.sofZmanShma = '2026-06-07T09:01:37-05:00';
+  const at = now => buildPayload(input, {now, transitionMetadata:true});
+  assert.equal(at('2026-06-07T08:56:00-05:00').next_transition_at, '2026-06-07T14:01:37.001Z');
+  assert.equal(at('2026-06-07T09:01:37-05:00').next_zman[0], 'Shema');
+  assert.equal(at('2026-06-07T09:01:37.001-05:00').next_zman[0], 'Tefilla');
+  assert.equal(buildPayload(input, {now:'2026-06-07T08:56:00-05:00'}).next_transition_at, undefined);
+});
+
+test('period, sunset date rollover and midnight wake even without a selected event', () => {
+  const input = fixture('2026-06-07', []);
+  const at = now => buildPayload(input, {now, transitionMetadata:true});
+  assert.equal(at('2026-06-07T05:00:00-05:00').next_transition_at, '2026-06-07T10:12:00.000Z');
+  assert.equal(at('2026-06-07T12:49:59-05:00').next_transition_at, '2026-06-07T17:50:00.000Z');
+  assert.equal(at('2026-06-07T20:27:59-05:00').next_transition_at, '2026-06-08T01:28:00.000Z');
+  assert.equal(at('2026-06-07T23:59:00-05:00').next_transition_at, '2026-06-08T05:00:00.000Z');
+});
+
+test('boundary midnight uses local civil date across both DST offsets', () => {
+  for (const [day,offset,utc] of [['2026-03-08','-05:00','2026-03-09T05:00:00.000Z'], ['2026-11-01','-06:00','2026-11-02T06:00:00.000Z']]) {
+    const input = fixture(day, []);
+    for (const key of Object.keys(input.IDX_0.times)) input.IDX_0.times[key]=input.IDX_0.times[key].replace('-05:00',offset);
+    assert.equal(buildPayload(input,{now:day+'T23:59:00'+offset,transitionMetadata:true}).next_transition_at,utc);
+  }
+});

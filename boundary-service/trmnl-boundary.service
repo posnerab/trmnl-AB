@@ -1,0 +1,29 @@
+[Unit]
+Description=Zmanim TRMNL transition images and wake scheduling
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=xander
+Group=xander
+WorkingDirectory=/usr/local/lib/trmnl-boundary/boundary-service
+Environment=NODE_ENV=production
+Environment=PYTHONPATH=/home/xander/projects/shared
+EnvironmentFile=/home/xander/.shared-credentials.env
+EnvironmentFile=-/etc/trmnl-boundary.env
+ExecStart=/usr/bin/node /usr/local/lib/trmnl-boundary/boundary-service/server.cjs
+Restart=on-failure
+RestartSec=15
+TimeoutStopSec=20
+StateDirectory=trmnl-boundary
+UMask=0077
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/trmnl-boundary
+MemoryMax=650M
+TasksMax=100
+
+[Install]
+WantedBy=multi-user.target

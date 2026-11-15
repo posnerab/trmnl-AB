@@ -113,3 +113,10 @@ Typical local setup:
 ```bash
 source ~/.shared-credentials.env
 ```
+
+## Transition-aligned device refresh
+
+The Pi [boundary service](boundary-service/README.md) reuses the canonical
+transform and full Liquid layout, pre-renders upcoming transitions and supplies
+TRMNL Redirect with a variable sleep interval. Its deployment and activation
+checks are separate from the hosted Plugin Merge configuration.
