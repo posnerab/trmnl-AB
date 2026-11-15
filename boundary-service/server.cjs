@@ -5,7 +5,7 @@ const crypto = require('node:crypto');
 const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
 const { Renderer } = require('./renderer.cjs');
-const { payloadAt, refreshSeconds, fingerprint, selectFrame } = require('./planner.cjs');
+const { payloadAt, refreshSeconds, fingerprint, selectFrame, matchesFrame } = require('./planner.cjs');
 const exec = promisify(execFile);
 const state = process.env.STATE_DIRECTORY || '/var/lib/trmnl-boundary';
 const publicBase = process.env.PUBLIC_BASE || 'https://zmanim.abie.live/trmnl';
@@ -48,21 +48,25 @@ async function makeFrame(payload, validFrom) {
   const hash=crypto.createHash('sha256').update(bytes).digest('hex');
   const name=`${hash}.png`;
   await fs.rename(temporary,path.join(state,'images',name));
-  return {name, fingerprint:fingerprint(payload),validFrom,validUntil:Date.parse(payload.next_transition_at),nextTransition:payload.next_transition_at, nextZman:payload.next_zman, renderedAt:Date.now()};
+  return {name, fingerprint:fingerprint(payload),validFrom,validUntil:Date.parse(payload.next_transition_at),nextTransition:payload.next_transition_at, nextZman:payload.next_zman,contextTile:payload.mamish?'mamish':'lunar',mamishScore:payload.mamish?.score??null, renderedAt:Date.now()};
 }
 async function prepare() {
   const now=Date.now();
   try {
     const payload=payloadAt(input,now), current=selectFrame(frames,now);
-    if(!current || fingerprint(payload)!==current.fingerprint || now-lastFrame>=900000) {
+    if(!matchesFrame(current,payload) || now-lastFrame>=900000) {
       const frame=await makeFrame(payload,now);
       frames=frames.filter(f=>f.validFrom<now && f.validUntil<=now).concat(frame); lastFrame=Date.now();
     }
     // Have the post-boundary screen in memory/disk before a sleeping device wakes.
     const boundary=Date.parse(payload.next_transition_at);
     const target=boundary+1;
-    if(boundary-now<=16*60000 && !frames.some(f=>f.validFrom===boundary)) {
-      frames.push(await makeFrame(payloadAt(input,target),boundary));
+    if(boundary-now<=16*60000) {
+      const nextPayload=payloadAt(input,target);
+      if(!frames.some(f=>f.validFrom===boundary && matchesFrame(f,nextPayload))) {
+        const nextFrame=await makeFrame(nextPayload,boundary);
+        frames=frames.filter(f=>f.validFrom!==boundary).concat(nextFrame);
+      }
     }
     frames=frames.filter(f=>f.validUntil>now-3600000).slice(-8);
     await atomic('frames.json',frames);
@@ -82,7 +86,7 @@ async function handler(req,res) {
   }
   if(req.url==='/trmnl/health') {
     const frame=selectFrame(frames,now);
-    return json(res,frame?200:503,{ready:!!frame,solar:solarStatus,sources:sourceStatus,rendered_at:frame?.renderedAt,next_transition_at:frame?.nextTransition,next_zman:frame?.nextZman,prepared_frames:frames.filter(f=>f.validUntil>now).length});
+    return json(res,frame?200:503,{ready:!!frame,solar:solarStatus,sources:sourceStatus,rendered_at:frame?.renderedAt,next_transition_at:frame?.nextTransition,next_zman:frame?.nextZman,context_tile:frame?.contextTile,mamish_score:frame?.mamishScore,prepared_frames:frames.filter(f=>f.validUntil>now).length});
   }
   const match=req.url.match(/^\/trmnl\/images\/([a-f0-9]{64}\.png)$/);
   if(match) {

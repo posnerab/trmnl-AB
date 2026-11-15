@@ -15,6 +15,16 @@ millisecond after their inclusive boundary. Midnight uses Milwaukee civil time,
 not a 24-hour duration across DST. Both transform copies must stay identical.
 
 The worker pre-renders the next screen when the transition is within 16 minutes.
+The lunar tile alternates with Weather Mamish on each quarter-hour: Mamish at
+:00–:15 and :30–:45, moon at :15–:30 and :45–:00 (Milwaukee time, including DST).
+These slot boundaries join the Zman transition planner; only the lunar tile
+changes. Earlier Zman boundaries still take priority. The score uses the same
+pinned `score.js` as `abie.live/weather-mamish`, with raw Tempest observation units
+explicitly converted to Fahrenheit. Missing/invalid weather or a reading at
+least 60 minutes old keeps the moon visible. A displayed score also expires at
+that freshness boundary. Source updates rebuild future frames when their content
+or expiry changes. The bottom weather and AQI tiles retain their existing sources.
+
 HTTP requests only select a ready image: they do not fetch sources or launch a
 renderer. Device sleep is capped at 15 minutes for weather, or shortened to the
 next boundary plus three seconds. Redirect's 60-second minimum and device clock,
@@ -83,6 +93,15 @@ belongs in `/etc/trmnl-boundary.env`.
    Disable "Wait for the next update" if it overrides Redirect's timing.
    Verify settings/readback, the served device image and a new hardware check-in.
    HTTP success and a check-in are not a photograph of the physical panel.
+
+## Scoring updates
+
+Commit the canonical `abie.live/weather-mamish/score.js` first, then run
+`node scripts/vendor_mamish.cjs` from the TRMNL parent and commit the generated
+module and `source.json`. `--check` checks parity with the sibling checkout.
+Include `boundary-service/vendor/` in deployment; the Pi does not load scoring
+code from another repository or the network at runtime. The standalone TRMNL
+cloud plugin still shows lunar data; the active Redirect renderer owns rotation.
 
 ## Checks and rollback
 

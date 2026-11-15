@@ -21,3 +21,13 @@ test('clock footer does not trigger needless renders but selection changes do',(
 test('missing solar data cannot produce an apparently healthy scheduled screen',()=>{
   assert.throws(()=>payloadAt({},Date.now()),/unavailable/);
 });
+test('source refresh invalidates a prepared frame when content or expiry changes',()=>{
+  const {matchesFrame}=require('../boundary-service/planner.cjs');
+  const payload={next_transition_at:'2026-11-15T16:15:00Z',mamish:{score:43}};
+  const frame={fingerprint:fingerprint(payload),nextTransition:payload.next_transition_at};
+  assert(matchesFrame(frame,payload));
+  assert(matchesFrame(frame,{...payload,current_time:'10:01 AM'}));
+  assert(!matchesFrame(frame,{...payload,mamish:{score:39}}));
+  assert(!matchesFrame(frame,{...payload,next_transition_at:'2026-11-15T16:14:00Z'}));
+  assert(!matchesFrame(null,payload));
+});
