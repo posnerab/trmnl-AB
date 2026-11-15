@@ -64,13 +64,15 @@ belongs in `/etc/trmnl-boundary.env`.
    This downloads the pinned official TRMNL Framework 3.4.6 and embeds its fonts
    locally. Generated assets, input caches and rendered files are runtime-only.
 5. The existing Pi `/home/xander/.shared-credentials.env` unlocks its existing
-   shared store. Verify `trmnl:zmanim` is usable without displaying it. Set
+   shared store through `start.sh`. Never pass this shell-format unlock file
+   to systemd `EnvironmentFile`: invalid assignments can be logged verbatim.
+   Verify `trmnl:zmanim` is usable without displaying it. Set
    `TRMNL_REFRESH_ALIAS=<approved-current-account-key-alias>` in the optional
    root-owned `/etc/trmnl-boundary.env`; never put the value there. This key must
    already be installed through the documented credential workflow.
 6. Install `trmnl-boundary.service` into `/etc/systemd/system`, daemon-reload and
    enable/start only that service. Chromium retains its sandbox and runs as the
-   unprivileged user. The service has a 650 MB memory limit, 100-task limit and
+   unprivileged user. The service has a 900 MB memory limit, 256-task limit and
    read-only source/home filesystem; only its state and private temp are writable.
 7. Back up, install and `nginx -t` the tracked
    `abie.live/deploy/nginx/zmanim.abie.live.conf`, then reload nginx. No DNS or
@@ -94,3 +96,19 @@ belongs in `/etc/trmnl-boundary.env`.
 - Restore original visible playlist item 887709 and hide Redirect for immediate
   display rollback. Restore backed-up service/source/vhost files as needed,
   validate nginx before reload, and restart only this service. Keep backups.
+
+## Installed state (November 14, 2026)
+
+The service and HTTPS endpoint are installed and verified. Redirect instance
+`541366` has the endpoint configured; it is not yet in the device playlist.
+Original item `887709` remains the sole visible item. Activation is pending
+playlist access and a current account API credential for continued refresh of
+source plugins after hiding the original merged item. Local browser access was
+disabled during this release, and the available account key is legacy.
+
+Validation: 265 Node tests passed; actual Pi rendering switched Latest Melave
+Malka to tomorrow's Earliest Daven across a simulated timestamp boundary; public
+PNG is 800x480, 1-bit, with correct Content-Length. All 74 origin security checks
+passed. Public checks passed 79/81; the two failures are unrelated existing
+AltRainbow Ally routes returning 502. A photograph or boundary-aligned hardware
+check-in is not yet verified. Source backups and detailed receipts stay local.

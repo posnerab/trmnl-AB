@@ -116,4 +116,4 @@ async function main() {
   },3600000);
   process.on('SIGTERM',async()=>{clearInterval(prepareTimer);clearInterval(sourceTimer);clearInterval(cleanupTimer);server.close();await renderer.close();process.exit(0);});
 }
-main().catch(()=>{console.error('Boundary service startup failed');process.exit(1);});
+main().catch(error=>{console.error('Boundary service startup failed', error.message.split('\n').slice(0,2).join(' '));process.exit(1);});
