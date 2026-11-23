@@ -46,18 +46,9 @@ see [the plugin's parity notes](plugins/zmanim/README.md#nextzman-parity).
 
 ## MCP and Credentials
 
-A persistent MCP server registration is stored in repo memory at `/memories/repo/mcp_servers.json`:
-
-```json
-{
-  "mcpServers": {
-    "trmnl": {
-      "type": "http",
-      "url": "https://trmnl.com/mcp?api_key=${TRMNL_MCP_API_KEY}"
-    }
-  }
-}
-```
+The workspace MCP registry configures `trmnl_zmanim`. Its local proxy reads
+`trmnl:zmanim` from the shared credential manager when it starts. See the
+[workspace MCP guide](../MCP.md) for setup and verification.
 
 A shared credential manager is linked into this repo at `credential_manager.py`.
 The actual source lives outside this repo so it can be reused across projects.

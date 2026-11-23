@@ -29,8 +29,6 @@ DEFAULT_CREDENTIAL_CANDIDATES = [
     "MCP_API_KEY",
     "api_key",
     "zmanim",
-    "parasha",
-    "hebdate",
 ]
 
 

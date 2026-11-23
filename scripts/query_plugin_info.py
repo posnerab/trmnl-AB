@@ -32,8 +32,6 @@ DEFAULT_CREDENTIAL_CANDIDATES = [
     "MCP_API_KEY",
     "api_key",
     "zmanim",
-    "parasha",
-    "hebdate",
 ]
 MCP_URL = "https://trmnl.com/mcp"
 
