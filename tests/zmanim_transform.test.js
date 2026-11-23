@@ -251,6 +251,15 @@ test("Earliest Daven is sunrise minus 72 minutes with an inclusive transition", 
   assert.deepEqual(buildPayload(input, { now: "2026-06-08T04:00:01-05:00" }).next_zman, expected[1]);
 });
 
+test("night and noon Chatzos share a label and carry separate icons", () => {
+  const early = buildPayload(fixture("2026-06-08", []), { now: "2026-06-08T00:00:00-05:00" });
+  const evening = buildPayload(fixture("2026-06-07", []), { now: "2026-06-07T21:00:00-05:00" });
+  const moon = buildPayload(fixture("2026-06-07", []), { now: "2026-06-07T00:00:00-05:00" }).next_icon;
+  assert.equal(early.next_icon, moon);
+  assert.equal(evening.following_rows.find(row => row.name === "Chatzos").icon, moon);
+  assert.match(early.following_rows.find(row => row.name === "Chatzos").icon, /<circle/);
+});
+
 test("civil midnight selects Chatzos or Sunday Melave Malka before morning", () => {
   assert.deepEqual(buildPayload(fixture("2026-06-08", []), { now: "2026-06-08T00:00:00-05:00" }).next_zman, ["Chatzos", "12:50 AM"]);
   assert.deepEqual(buildPayload(fixture("2026-06-07", []), { now: "2026-06-07T00:00:00-05:00" }).next_zman, ["Latest Melave Malka", "12:50 AM"]);

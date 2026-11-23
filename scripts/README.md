@@ -29,7 +29,6 @@ Examples:
 ```bash
 python scripts/trmnl-helper.py test-mcp
 python scripts/trmnl-helper.py test-mcp zmanim
-python scripts/trmnl-helper.py test-mcp trmnl:parasha
 ```
 
 ## `test_mcp_connection.py`

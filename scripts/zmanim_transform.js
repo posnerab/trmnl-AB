@@ -745,6 +745,7 @@ function buildPayload(input, options) {
       if (following.next_zman) {
         payload.next_zman = following.next_zman;
         payload.times = following.times;
+        payload.zman_rows = following.zman_rows;
         payload.next_day = true;
       }
     }
@@ -784,9 +785,8 @@ function buildPayload(input, options) {
     special_shabbos: specialShabbos,
     holiday,
     calendar_through: Object.keys(CBJ_MINCHA_SCHEDULE).sort().slice(-1)[0],
-    next_icon: zmanIcon(payload.next_zman ? payload.next_zman[0] : ""),
-    zman_rows: payload.times.map(([name, time]) => ({ name, time, icon: zmanIcon(name) })),
-    following_rows: payload.times.slice(1).map(([name, time]) => ({ name, time, icon: zmanIcon(name) })),
+    next_icon: payload.zman_rows[0]?.icon || zmanIcon(""),
+    following_rows: payload.zman_rows.slice(1),
     weather: weatherSummary(),
     air_quality: airQualitySummary(),
     lunar: lunarSummary(),
@@ -1039,7 +1039,7 @@ function buildPayload(input, options) {
     if (current < chatzot) {
       period = sunrise && current < sunrise ? "Early Morning" : day === 6 ? "Shabbos Morning" : "Morning";
       if (chatzotNight && chatzotNight >= current && formatDateParam(chatzotNight) === formatDateParam(current)) {
-        relevantTimes.push([day === 0 ? "Latest Melave Malka" : "Chatzos", chatzotNight]);
+        relevantTimes.push([day === 0 ? "Latest Melave Malka" : "Chatzos", chatzotNight, "Midnight"]);
       }
       relevantTimes.push(
         ["Earliest Daven", sunrise ? addMinutes(sunrise, -72) : null],
@@ -1065,7 +1065,7 @@ function buildPayload(input, options) {
       }
     } else {
       period = "Evening";
-      relevantTimes = [["Tzeis", z.tzeit72min], ["Chatzos", nextChatzotNight]];
+      relevantTimes = [["Tzeis", z.tzeit72min], ["Chatzos", nextChatzotNight, "Midnight"]];
     }
     relevantTimes.push(...cbjMinchaItems(cbjMincha), ...(cbjEvents || []));
     if (options && options.transitionMetadata) {
@@ -1077,11 +1077,15 @@ function buildPayload(input, options) {
       const nextKey = new Date(Date.parse(formatDateParam(current) + "T12:00:00Z") + 86400000).toISOString().slice(0, 10);
       transitionTimes.push(parseLocalClock(nextKey, "00:00").getTime());
     }
+    const rows = filterDisplayTimes(relevantTimes, current).map(([name, date, iconName]) => ({
+      name, time: formatClock(date), icon: zmanIcon(iconName || name)
+    }));
     return {
       period, current_time: formatClock(current), date: formatDisplayDate(current),
-      hdate: hd, parasha: p, next_zman: findNextZman(relevantTimes, current),
+      hdate: hd, parasha: p, next_zman: rows.length ? [rows[0].name, rows[0].time] : null,
       next_day: false,
-      times: filterDisplayTimes(relevantTimes, current).map(([name, time]) => [name, formatClock(time)]),
+      times: rows.map(({name, time}) => [name, time]),
+      zman_rows: rows,
       location
     };
   }
@@ -1091,15 +1095,6 @@ function buildPayload(input, options) {
       (key === "sofZmanShma" || key.startsWith("sofZmanShmaMGA")) && value instanceof Date && Number.isFinite(value.getTime())
     ).map(([, value]) => value.getTime());
     return candidates.length ? new Date(Math.max(...candidates)) : null;
-  }
-
-  function findNextZman(items, current) {
-    const candidates = items
-      .filter((item) => item[1] instanceof Date && !Number.isNaN(item[1].getTime()))
-      .filter((item) => item[1].getTime() >= current.getTime())
-      .sort((a, b) => a[1].getTime() - b[1].getTime());
-    if (!candidates.length) return null;
-    return [candidates[0][0], formatClock(candidates[0][1])];
   }
 
   function filterDisplayTimes(items, current) {
