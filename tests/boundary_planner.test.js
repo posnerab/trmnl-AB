@@ -6,6 +6,9 @@ test('wakes after exact event with minimum interval and bounded weather refresh'
   assert.equal(refreshSeconds(now,'2026-11-15T00:07:12Z'),435);
   assert.equal(refreshSeconds(now,'2026-11-15T00:00:20Z'),60);
   assert.equal(refreshSeconds(now,'2026-11-15T04:00:00Z'),900);
+  const nextQuarter = '2026-11-15T00:15:00Z';
+  assert.equal(refreshSeconds(now, nextQuarter, now - 900000), 90);
+  assert.equal(refreshSeconds(now, nextQuarter, now), 900);
 });
 test('promotes pre-rendered image without rendering or network at boundary',()=>{
   const frames=[{validFrom:100,validUntil:200,name:'before'},{validFrom:200,validUntil:300,name:'after'}];

@@ -6,6 +6,11 @@ const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
 const { Renderer } = require('./renderer.cjs');
 const { payloadAt, refreshSeconds, fingerprint, selectFrame, matchesFrame } = require('./planner.cjs');
+const { openMeteoURL, fromOpenMeteo } = require('./vendor/weather-mamish/score.js');
+// Zippopotam.us coordinates used by Weather Mamish when Milwaukee ZIP 53216 is selected.
+const mamishURL = openMeteoURL(43.0859, -87.9742);
+const fiveMinutes = 5 * 60000;
+let mamishWeather = null, nextMamishFetch = 0;
 const exec = promisify(execFile);
 const state = process.env.STATE_DIRECTORY || '/var/lib/trmnl-boundary';
 const publicBase = process.env.PUBLIC_BASE || 'https://zmanim.abie.live/trmnl';
@@ -19,6 +24,17 @@ async function fetchJSON(url) {
   const r=await fetch(url,{signal:AbortSignal.timeout(20000),headers:{'User-Agent':'abie-trmnl-boundary/1.0'}});
   if(!r.ok) throw new Error('Source unavailable');
   return r.json();
+}
+async function refreshMamish() {
+  const now = Date.now();
+  if (now < nextMamishFetch) return;
+  try {
+    mamishWeather = fromOpenMeteo(await fetchJSON(mamishURL));
+    nextMamishFetch = (Math.floor(now / fiveMinutes) + 1) * fiveMinutes;
+  } catch {
+    mamishWeather = null;
+    nextMamishFetch = now + 60000;
+  }
 }
 async function sources() {
   const now=Date.now(), day=isoDay(new Date());
@@ -48,12 +64,13 @@ async function makeFrame(payload, validFrom) {
   const hash=crypto.createHash('sha256').update(bytes).digest('hex');
   const name=`${hash}.png`;
   await fs.rename(temporary,path.join(state,'images',name));
-  return {name, fingerprint:fingerprint(payload),validFrom,validUntil:Date.parse(payload.next_transition_at),nextTransition:payload.next_transition_at, nextZman:payload.next_zman,contextTile:payload.mamish?'mamish':'lunar',mamishScore:payload.mamish?.score??null, renderedAt:Date.now()};
+  return {name, fingerprint:fingerprint(payload),validFrom,validUntil:Date.parse(payload.next_transition_at),nextTransition:payload.next_transition_at, nextZman:payload.next_zman,contextTile:payload.mamish?'mamish':'lunar',mamishScore:payload.mamish?.score??null,
+    mamishLabel:payload.mamish?.label??null, mamishObservedAt:payload.mamish?.observedAt??null, renderedAt:Date.now()};
 }
 async function prepare() {
   const now=Date.now();
   try {
-    const payload=payloadAt(input,now), current=selectFrame(frames,now);
+    const payload=payloadAt(input,now,mamishWeather), current=selectFrame(frames,now);
     if(!matchesFrame(current,payload) || now-lastFrame>=900000) {
       const frame=await makeFrame(payload,now);
       frames=frames.filter(f=>f.validFrom<now && f.validUntil<=now).concat(frame); lastFrame=Date.now();
@@ -62,7 +79,7 @@ async function prepare() {
     const boundary=Date.parse(payload.next_transition_at);
     const target=boundary+1;
     if(boundary-now<=16*60000) {
-      const nextPayload=payloadAt(input,target);
+      const nextPayload=payloadAt(input,target,mamishWeather);
       if(!frames.some(f=>f.validFrom===boundary && matchesFrame(f,nextPayload))) {
         const nextFrame=await makeFrame(nextPayload,boundary);
         frames=frames.filter(f=>f.validFrom!==boundary).concat(nextFrame);
@@ -82,11 +99,11 @@ async function handler(req,res) {
     const name=frame?.name || fallback;
     if(!name) return json(res,503,{error:'Screen preparation pending'});
     console.log(JSON.stringify({event:'display',at:new Date(now).toISOString(),image:name,transition:frame?.nextTransition, fallback:!frame}));
-    return json(res,200,{filename:name.slice(0,-4),url:`${publicBase}/images/${name}`,refresh_rate:frame ? refreshSeconds(now,frame.nextTransition) : 60});
+    return json(res,200,{filename:name.slice(0,-4),url:`${publicBase}/images/${name}`,refresh_rate:frame ? refreshSeconds(now,frame.nextTransition,frame.mamishObservedAt) : 60});
   }
   if(req.url==='/trmnl/health') {
     const frame=selectFrame(frames,now);
-    return json(res,frame?200:503,{ready:!!frame,solar:solarStatus,sources:sourceStatus,rendered_at:frame?.renderedAt,next_transition_at:frame?.nextTransition,next_zman:frame?.nextZman,context_tile:frame?.contextTile,mamish_score:frame?.mamishScore,prepared_frames:frames.filter(f=>f.validUntil>now).length});
+    return json(res,frame?200:503,{ready:!!frame,solar:solarStatus,sources:sourceStatus,rendered_at:frame?.renderedAt,next_transition_at:frame?.nextTransition,next_zman:frame?.nextZman,context_tile:frame?.contextTile,mamish_score:frame?.mamishScore,mamish_label:frame?.mamishLabel,mamish_observed_at:frame?.mamishObservedAt,prepared_frames:frames.filter(f=>f.validUntil>now).length});
   }
   const match=req.url.match(/^\/trmnl\/images\/([a-f0-9]{64}\.png)$/);
   if(match) {
@@ -99,14 +116,14 @@ async function main() {
   try {input=JSON.parse(await fs.readFile(path.join(state,'input.json'),'utf8'));}catch{}
   // A restart regenerates frames instead of trusting old template/source revisions.
   const tmp=path.join(state,'fallback.png');
-  await renderer.render({error:'Refresh delayed. Reconnecting…',current_time:'—'},tmp);
+  await renderer.render({error:'Refresh delayed. Reconnectingâ€¦',current_time:'â€”'},tmp);
   const data=await fs.readFile(tmp);fallback=crypto.createHash('sha256').update(data).digest('hex')+'.png';await fs.rename(tmp,path.join(state,'images',fallback));
   await renderer.close();
   const server=http.createServer((req,res)=>handler(req,res).catch(()=>json(res,500,{error:'Unavailable'})));
   server.listen(Number(process.env.PORT||8794),'127.0.0.1');
   // Network fetches never block display/image requests or boundary promotion.
   let loading=false;
-  const load=async()=>{if(loading)return;loading=true;try{await sources();}finally{loading=false;}};
+  const load=async()=>{if(loading)return;loading=true;try{await Promise.all([sources(), refreshMamish()]);}finally{loading=false;}};
   await load();
   let working=false;
   const work=async()=>{if(working)return;working=true;try{await prepare();}finally{working=false;}};

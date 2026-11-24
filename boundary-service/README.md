@@ -19,11 +19,12 @@ The lunar tile alternates with Weather Mamish on each quarter-hour: Mamish at
 :00–:15 and :30–:45, moon at :15–:30 and :45–:00 (Milwaukee time, including DST).
 These slot boundaries join the Zman transition planner; only the lunar tile
 changes. Earlier Zman boundaries still take priority. The score uses the same
-pinned `score.js` as `abie.live/weather-mamish`, with raw Tempest observation units
-explicitly converted to Fahrenheit. Missing/invalid weather or a reading at
+pinned `score.js` as `abie.live/weather-mamish`, including its clothing labels, Fahrenheit
+units and Open-Meteo request. The Mamish tile checks every five minutes at the
+same coordinates Weather Mamish uses for Milwaukee ZIP 53216. Missing/invalid weather or a reading at
 least 60 minutes old keeps the moon visible. A displayed score also expires at
 that freshness boundary. Source updates rebuild future frames when their content
-or expiry changes. The bottom weather and AQI tiles retain their existing sources.
+or expiry changes. The separate weather tile continues to show the Milwaukee Tempest station.
 
 HTTP requests only select a ready image: they do not fetch sources or launch a
 renderer. Device sleep is capped at 15 minutes for weather, or shortened to the

@@ -29,8 +29,19 @@
     // wind/humidity (and, for Open-Meteo, solar radiation): do not count them twice.
     // UV and precipitation determine protection, not how much insulation to wear.
     const score = Math.max(0, Math.min(100, Math.round((68 - feelsLike) * 1.55)));
-    const [, label, shortLabel] = bands.find(([minimum]) => score >= minimum);
+    const [label, shortLabel] = feelsLike >= 80
+      ? ['Light clothing · hot outside', 'Light clothing']
+      : bands.find(([minimum]) => score >= minimum).slice(1);
     return { score, label, shortLabel, feelsLike, observedAt, expiresAt: observedAt + MAX_AGE_MS, modelVersion: MODEL_VERSION };
+  }
+  function openMeteoURL(latitude, longitude) {
+    const params = new URLSearchParams({
+      latitude, longitude,
+      current: 'temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,cloud_cover,uv_index,weather_code,is_day',
+      temperature_unit: 'fahrenheit', wind_speed_unit: 'mph',
+      timezone: 'auto', timeformat: 'unixtime', forecast_days: '1',
+    });
+    return 'https://api.open-meteo.com/v1/forecast?' + params;
   }
   function fromOpenMeteo(data) {
     const c = data?.current, units = data?.current_units;
@@ -50,5 +61,5 @@
   function isWet(weather) {
     return [51,53,55,56,57,61,63,65,66,67,71,73,75,77,80,81,82,85,86,95,96,99].includes(weather?.code);
   }
-  return { calculateMamish, fromOpenMeteo, isWet, MAX_AGE_MS, MODEL_VERSION };
+  return { calculateMamish, fromOpenMeteo, openMeteoURL, isWet, MAX_AGE_MS, MODEL_VERSION };
 });
